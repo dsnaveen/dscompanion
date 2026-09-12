@@ -62,3 +62,17 @@ logs/
 # Build
 *.so
 *.c
+
+# --- domain-ml-private siblings (never part of the public dscompanion repo) ---
+data/
+frontend/
+notes/
+mlcore-legacy/
+.git-domain-ml-archive/
+.agents/
+.superpowers/
+.worktrees/
+create_env.sh
+pack.py
+unpack.py
+*_bundle.txt
