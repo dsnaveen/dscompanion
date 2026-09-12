@@ -1,0 +1,16 @@
+# Explicit, deterministic theme — before this file existed, the app rendered
+# dark only via browser/OS auto-detection (see interactive_state.py's dark_fig()
+# docstring, which exists specifically to compensate for that un-declared
+# default). Values sourced from the dataviz skill's validated chart-chrome +
+# categorical palette (see dscompanion/dscompanion/utils/plotting.py's apply_dscompanion_theme()
+# and dscompanion/app/interactive_state.py's dark_fig() for the matching Plotly-side
+# colors), not hand-picked.
+[theme]
+base = "dark"
+primaryColor = "#3987e5"
+backgroundColor = "#0d0d0d"
+secondaryBackgroundColor = "#1a1a19"
+textColor = "#ffffff"
+borderColor = "#2c2c2a"
+dataframeBorderColor = "#2c2c2a"
+font = "sans-serif"

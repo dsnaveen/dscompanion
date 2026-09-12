@@ -1,0 +1,269 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# dscompanion Experiment Config Template
+# ─────────────────────────────────────────────────────────────────────────────
+# REQUIRED fields are marked with  ← REQUIRED
+# Everything else has a safe default and can be left as-is or deleted.
+# Pass this file to PipelineRunner.from_yaml("path/to/this.yaml").run()
+#
+# Everything below this header (down to the "GLOBAL SETTINGS" block at the
+# bottom) is a real PipelineConfig field — PipelineConfig uses extra="forbid",
+# so any key NOT in its schema raises a ValidationError before the pipeline
+# runs. This file is kept in sync with that schema; if a from_yaml() load
+# ever fails with "Extra inputs are not permitted", a field in this file has
+# drifted from dscompanion/pipeline/config.py and should be fixed here, not worked
+# around by deleting the validation.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: credit_risk_baseline_v1        # ← REQUIRED: experiment name (used in run name + report title)
+version: "1.0"
+description: "First baseline on feature store output — Logistic + XGBoost comparison"
+owner: "scientist_name"              # your name / UCIC — appears in model card
+
+# ── Data ─────────────────────────────────────────────────────────────────────
+data:
+  path: abfss://container@account.dfs.core.windows.net/features/credit_risk.parquet  # ← REQUIRED
+  format: parquet                    # parquet | csv | delta
+  target: default_flag               # ← REQUIRED: column name of the target variable
+  # feature_columns:                 # optional: list specific columns; default = all except target
+  #   - age_band
+  #   - income_segment
+  #   - utilisation_ratio
+  # date_column: transaction_date    # required only when split.method = temporal
+  # nrows: 50000                     # DEV ONLY — remove before production runs
+
+# ── Split ─────────────────────────────────────────────────────────────────────
+split:
+  method: stratified                 # stratified | random | temporal | grouped
+  test_size: 0.2                     # fraction of full dataset held out for test
+  val_size: 0.1                      # fraction of training set used for validation
+  # group_column: customer_id        # required only when method = grouped
+
+# ── EDA ───────────────────────────────────────────────────────────────────────
+eda:
+  enabled: true
+  univariate: true                   # per-column stats, missing rates, distributions
+  bivariate: true                    # IV, event rate by decile vs target
+  multivariate: false                # pairwise correlation matrix — set true only if < 200 features
+
+  # Alert thresholds — drive the HIGH_MISSING / SKEWED / ZEROS / IMBALANCED flags in the EDA Summary
+  high_missing_threshold: 0.30       # missing-value rate above this → HIGH_MISSING alert
+  near_zero_variance_threshold: 0.01 # variance below this → near_zero_variance_flag + recommended_drops
+  skewness_alert_threshold: 1.0      # |skew| at-or-above this → SKEWED alert
+  zero_pct_alert_threshold: 0.05     # zero-value rate at-or-above this → ZEROS alert
+  imbalance_alert_threshold: 0.5     # entropy-based imbalance score (0=uniform, 1=dominated) → IMBALANCED alert
+
+  # Section sizing / sampling
+  extreme_values_n: 5                # smallest/largest raw values captured per numeric feature
+  sample_n_rows: 10                  # rows shown per head/tail in the Sample section
+  duplicate_rows_max_display: 50     # cap on duplicate rows rendered in the Duplicate Rows section
+  missing_matrix_max_rows: 500       # row subsample cap for the missing-values nullity matrix
+  interaction_max_numeric_cols: 8    # cap on numeric columns considered in the Interactions section
+  interaction_hexbin_row_threshold: 2000  # row count above which Interactions switches scatter → hexbin
+  text_analysis_top_n_words: 20      # top-N word-frequency entries per categorical/text feature
+  text_analysis_top_n_chars: 20      # top-N character-frequency entries per categorical/text feature
+
+  # Compliance opt-ins — all default false because they expose raw row-level data
+  include_sample_rows: false             # true → Sample section shows actual first/last rows
+  include_duplicate_row_content: false   # true → Duplicate Rows shows row content, not just counts
+  include_text_sample_values: false      # true → categorical Words/Characters tab shows raw sample values
+
+  # to_excel()-only chart controls (no effect on to_html()/to_word())
+  chart: true                        # master switch for every native Excel chart
+  chart_clip_lower_pct: 0.01         # lower-tail fraction clipped before per-feature numeric histograms
+  chart_clip_upper_pct: 0.01         # upper-tail fraction clipped before per-feature numeric histograms
+
+# ── Feature Engineering ───────────────────────────────────────────────────────
+features:
+  imputer:
+    numeric_strategy: auto           # auto (skew-based) | mean | median | constant
+    categorical_strategy: most_frequent  # most_frequent | constant
+    fill_value: null                 # constant value used only when either strategy above is "constant"
+    add_missing_indicator: false     # set true to add {col}_was_missing columns
+
+  encoder:
+    strategy: ordinal                # ordinal | onehot | target
+    max_categories: 50               # columns with more unique values → removed by cardinality selector
+
+  scaler:
+    strategy: none                   # none (default for tree models) | standard | minmax | robust
+                                     # use standard or robust when algorithm = logistic
+
+  winsorizer:
+    enabled: false                   # must be true for lower_tail/upper_tail below to take effect
+    lower_tail: 0.01                 # fraction of lower tail to clip
+    upper_tail: 0.01                 # fraction of upper tail to clip — clips at 1-upper_tail percentile
+
+# ── Target Treatment ──────────────────────────────────────────────────────────
+target:
+  imbalance:
+    strategy: class_weight           # class_weight | smote | undersample | oversample | none
+    sampling_strategy: auto          # ratio (float) or strategy string forwarded to the underlying sampler
+  # binarize_threshold: 5000         # uncomment to convert continuous target → binary (>= threshold = 1)
+
+# ── Feature Selection ─────────────────────────────────────────────────────────
+# Stages run in this fixed order: null rate → constant → quasi-constant → cardinality
+# → leakage check → correlation → IV → VIF (optional)
+selection:
+  remove_high_null: true             # drop columns whose missing rate exceeds null_rate_threshold
+  null_rate_threshold: 0.8
+
+  remove_constant: true
+  remove_quasi_constant: true
+  quasi_constant_threshold: 0.99    # one value appears in ≥ 99% of rows → drop
+
+  remove_high_cardinality: true
+  cardinality_threshold: 50         # categorical columns with > 50 unique values → drop
+
+  leakage_check: true               # ALWAYS runs — flags features with r > leakage_threshold vs target
+  leakage_threshold: 0.95
+
+  remove_high_correlation: true
+  correlation_threshold: 0.85       # drop one column from each pair with |r| > threshold
+
+  iv_threshold: 0.02                # features with IV < 0.02 → drop (weak predictors)
+
+  vif_enabled: false                # expensive on 500+ columns — enable only for logistic regression
+  vif_threshold: 10.0
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+model:
+  task: classification               # ← REQUIRED: classification | regression | clustering
+  algorithm: xgboost                 # classification: xgboost | lightgbm | logistic | random_forest | gradient_boosting
+                                     #                 | svm | knn | decision_tree | extra_trees | adaboost | naive_bayes
+                                     # regression:     xgboost | lightgbm | linear | ridge | lasso | elastic_net
+                                     #                 | random_forest | gradient_boosting | svm | knn | decision_tree
+                                     #                 | extra_trees | adaboost
+                                     # clustering:     kmeans | dbscan | hierarchical
+                                     # ignored entirely when leaderboard.enabled = true below
+  params: {}                         # override dscompanion defaults — e.g. max_depth: 4, n_estimators: 500
+
+# ── Leaderboard ───────────────────────────────────────────────────────────────
+# When enabled, replaces single-model training: every algorithm supported for
+# model.task (or the include/exclude subset) is trained and compared, and the
+# top-ranked one continues through tuning/calibration/SHAP/model card — model.
+# algorithm above is ignored and gets overwritten in place with the winner.
+# Classification only for now (PyCaret/H2O AutoML-style compare-then-finalise).
+leaderboard:
+  enabled: false                     # set true to compare algorithms instead of training one
+  # include: [logistic, xgboost, random_forest]   # restrict comparison to these (default: all)
+  # exclude: [svm, lightgbm]                       # skip these (ignored if include is set)
+  # sort_metric: roc_auc             # default: settings.classification_metrics[0] ("roc_auc")
+  # eval_split: val                  # default: val if non-empty, else test — never oot
+
+# ── Tuning ────────────────────────────────────────────────────────────────────
+tuning:
+  enabled: false                     # set true for production run after baseline validates
+  n_trials: 50                       # 50 = quick sweep; 100-200 = production
+  metric: roc_auc                    # metric key returned by model.evaluate()
+  direction: maximize                # maximize | minimize
+  backend: optuna                    # only optuna is supported
+
+# ── Explainability ────────────────────────────────────────────────────────────
+explain:
+  shap_enabled: true                 # SHAP feature importance — always recommended
+  shap_sample_size: 5000             # rows sampled from test set for SHAP (memory guard for 2M rows)
+  shap_top_n: 20                     # top N features in SHAP summary and waterfall plots
+  lime_enabled: false                # LIME local explanations — slower, off by default
+
+# ── Reporting ─────────────────────────────────────────────────────────────────
+reporting:
+  output_dir: ./reports                  # local or /dbfs/ path for the HTML report
+  html_report: false                     # write the HTML report to disk (Excel is still primary)
+  decile_table: true                     # 10-decile lift table (classification only)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GLOBAL SETTINGS — NOT part of this file, NOT loaded by PipelineConfig
+# ═══════════════════════════════════════════════════════════════════════════
+# Everything below is reference documentation only. These are
+# dscompanion.config.settings fields — environment-wide defaults read by library
+# code via settings.<field>, not per-experiment YAML keys. PipelineConfig has
+# no field for any of these; pasting them above (as keys) will raise a
+# ValidationError. To override one for your whole session/cluster, do this in
+# Python BEFORE building/running a pipeline, not in this YAML:
+#
+#   from dscompanion.config import settings
+#   settings.vif_round_precision = 3
+#
+# A handful of names below look like duplicates of fields already set above
+# (e.g. eda_skewness_alert_threshold vs. eda.skewness_alert_threshold) — they
+# are NOT the same field. The eda.* fields above are a deliberate
+# per-experiment override surface for that subset; everything listed here has
+# no such override and is env-wide only.
+#
+# splitting (DataSplitter)
+#   splitter_oot_min_rows = 50                  # min OOT rows for temporal split; fewer raises ValueError
+#   splitter_class_ratio_tolerance = 0.05       # max event-rate gap between train/val/test before a warning
+#
+# eda (EDAReport / UnivariateAnalyser / BivariateAnalyser / MultivariateAnalyser)
+#   max_eda_rows = 100000                       # max rows loaded for distribution plots
+#   vif_round_precision = 2                     # decimal places for VIF values in output tables
+#   pca_default_components = 10                 # components shown in pca_summary()
+#   pca_plot_max_components = 20                # max components rendered in the PCA scree plot
+#   default_iv_bins = 10                        # quantile bins for WoE/IV per numeric feature
+#   iv_round_precision = 6                      # decimal places for IV values in output tables
+#   corr_round_precision = 4                    # decimal places for Pearson r / Cramér's V
+#   iqr_multiplier = 1.5                        # Tukey fence multiplier for outlier detection
+#   zscore_outlier_threshold = 3.0               # |z-score| above which a value counts as an outlier
+#   eda_histogram_bins = 40                     # bins in EDA numeric distribution histograms
+#   eda_top_categorical_values = 20             # top-N values shown in categorical EDA bar charts
+#   eda_chart_clip_lower_pct / eda_chart_clip_upper_pct = 0.01 / 0.01  # legacy duplicates of eda.chart_clip_*
+#   high_missing_threshold = 0.3                # legacy duplicate of eda.high_missing_threshold above
+#   eda_skewness_alert_threshold / eda_zero_pct_alert_threshold / eda_imbalance_alert_threshold
+#       = 1.0 / 0.05 / 0.5             # legacy duplicates of eda.*_alert_threshold above
+#   eda_extreme_values_n / eda_sample_n_rows / eda_duplicate_rows_max_display / eda_missing_matrix_max_rows
+#       / eda_interaction_max_numeric_cols / eda_interaction_hexbin_row_threshold
+#       / eda_text_analysis_top_n_words / eda_text_analysis_top_n_chars
+#       = legacy duplicates of the equivalent eda.* fields above
+#
+# features.imputer / features.binner (AutoBinner has no PipelineConfig section at all)
+#   imputer_skew_threshold = 0.5                 # auto strategy: |skew| below → mean, at-or-above → median
+#   imputer_missing_indicator_threshold = 0.05   # missing fraction above which {col}_was_missing is added
+#   binner_n_bins = 10                           # default bins for AutoBinner (quantile/uniform strategies)
+#   binner_min_samples_leaf = 0.05               # min fraction of rows per leaf in tree-based AutoBinner
+#   binner_max_classes = 20                      # unique target values at/below which tree AutoBinner classifies
+#
+# features.encoder (WoEEncoder / HighCardinalityEncoder)
+#   woe_clip_value = 4.0                         # WoE values clamped to ±this bound
+#   woe_min_bin_size = 0.05                      # min fraction of rows each WoE bin must contain
+#   target_encoding_smoothing_factor = 10.0      # smoothing factor m for leave-one-out target encoding
+#
+# features.winsorizer
+#   winsorizer_lower_tail / winsorizer_upper_tail = 0.01 / 0.01  # legacy duplicates of features.winsorizer.*
+#
+# selection (feature selectors — most have a per-experiment override under selection.* above;
+#            these two below have no override surface)
+#   high_cardinality_threshold = 50              # legacy duplicate of selection.cardinality_threshold
+#   correlation_threshold = 0.85                 # legacy duplicate of selection.correlation_threshold
+#   near_zero_variance_threshold = 0.01          # variance below which a column is treated as constant
+#   target_leakage_correlation_threshold = 0.95  # legacy duplicate of selection.leakage_threshold
+#   rfe_logreg_max_iter = 200                    # max_iter for RFESelector's default LogisticRegression
+#   shap_selector_min_importance = 0.0           # SHAPSelector drops features with mean |SHAP| below this
+#   shap_selector_max_samples = 2000             # max rows subsampled before calling shap.Explainer
+#
+# model (BaseDSCompanionModel / ClassificationModel / ClusteringModel — no per-experiment override)
+#   score_dist_bins = 50                         # histogram bins per class in score_distribution_plot()
+#   evaluate_round_precision = 6                 # decimal places for metric values in evaluate()
+#   fit_time_round_precision = 3                 # decimal places for fit duration logged after fit()
+#   classification_metrics = [roc_auc, ks_statistic, gini, f1, log_loss, psi]  # also leaderboard's default sort-metric source
+#   regression_metrics = [rmse, mae, r2, mape]
+#   clustering_metrics = [silhouette, davies_bouldin, inertia]
+#   silhouette_sample_size = 5000                 # max rows sampled for silhouette_score (OOM guard)
+#
+# explain (SHAPExplainer / BootstrapSHAPExplainer — no per-experiment override beyond explain.* above)
+#   shap_background_samples = 100                 # max background rows for Kernel/LinearExplainer
+#   shap_kernel_nsamples = 100                    # nsamples for KernelExplainer — higher = slower, more accurate
+#   shap_bootstrap_batches = 10                   # bootstrap iterations in BootstrapSHAPExplainer
+#   shap_bootstrap_batch_size = 2000              # rows sampled per bootstrap batch
+#   shap_beeswarm_max_display_samples = 2000      # max points per feature in beeswarm plot
+#
+# calibration (Calibrator — hardcoded method="isotonic", cv="prefit" in PipelineRunner._calibrate();
+#              no PipelineConfig section or settings override exists for method/cv at all)
+#   calibration_ece_bins = 10                     # equal-width probability bins for Expected Calibration Error
+#
+# tuning / misc
+#   default_n_trials = 100                        # legacy duplicate of tuning.n_trials' implicit default
+#   default_cv_folds = 5
+#   default_test_size / default_val_size = 0.2 / 0.1  # legacy duplicates of split.test_size / split.val_size
+#   random_state = 42                             # seed used wherever dscompanion code accepts random_state
+# ═══════════════════════════════════════════════════════════════════════════

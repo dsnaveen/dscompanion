@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+wheels/
+*.egg-link
+MANIFEST
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+.conda/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Generated reports (PipelineRunner / ModelCard output — build artefacts, not source)
+reports/
+outputs/
+*.xlsx
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.ruff_cache/
+
+# MLflow-style run artefacts (not used by default, but ignored if present)
+mlruns/
+mlartifacts/
+
+# Sphinx generated docs — build artefact, not source (rebuild via `make html`)
+docs/_build/
+docs/api/generated/
+
+# IDE
+.vscode/
+.idea/
+.claude/
+*.swp
+*.swo
+.DS_Store
+*.code-workspace
+
+# Logs
+*.log
+logs/
+
+# Build
+*.so
+*.c

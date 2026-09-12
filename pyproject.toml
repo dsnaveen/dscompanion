@@ -1,0 +1,106 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dscompanion"
+version = "0.1.0"
+description = "A production-grade ML pipeline toolkit: EDA, feature engineering, model training/tuning/calibration, and governance-ready model cards."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "pandas==2.3.3",           # pandas 2.x — does not default to Copy-on-Write
+    "numpy==2.3.5",            # pinned for numba 0.62.1 compatibility
+    "scikit-learn==1.9.0",
+    "scipy==1.18.1",
+    "statsmodels==0.14.6",
+    "joblib==1.5.3",
+    "plotly==5.24.1",
+    "jinja2==3.1.5",
+    "pyyaml==6.0.2",
+    "pydantic==2.10.6",        # v2 native — BaseSettings lives in pydantic-settings
+    "pydantic-settings==2.15.0",
+    "matplotlib==3.11.1",
+    "seaborn==0.13.2",
+    "xgboost==3.0.0",          # macOS dev requires Homebrew libomp (conda-forge llvm-openmp)
+    "optuna==3.6.1",
+    "shap==0.47.1",            # pre-0.52 API — shap_explainer.py returns list-of-arrays branch;
+                               # shap 0.52.0+ returns a 3-D ndarray instead
+    # imbalanced-learn is intentionally not a dependency — ImbalanceHandler's smote/undersample
+    # strategies are implemented from scratch on scikit-learn's NearestNeighbors alone, since
+    # imbalanced-learn has a history of version conflicts with recent scikit-learn releases.
+    "python-docx==1.2.0",
+    "xlsxwriter==3.2.9",       # engine for ModelCard.to_excel()
+]
+
+[project.urls]
+Homepage = "https://github.com/dsnaveen/dscompanion"
+Repository = "https://github.com/dsnaveen/dscompanion"
+Issues = "https://github.com/dsnaveen/dscompanion/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov>=4.1", "black>=24.0", "ruff>=0.3"]
+databricks = ["pyspark==4.0.0", "databricks-sdk>=0.20"]
+# Doc build tooling only — never imported by dscompanion's runtime code.
+docs = ["sphinx>=9.0", "furo>=2025.0", "sphinx-autodoc-typehints>=3.0", "myst-parser>=5.0"]
+# Local-dev UI only — drives PipelineRunner from a browser on a dev machine against
+# local data. app/ is never imported by dscompanion's runtime code, so this
+# extra is optional even for full local development.
+app = ["streamlit>=1.37", "openpyxl>=3.1"]
+# Optional FastAPI service exposing PipelineRunner over HTTP, for a web-based
+# frontend. Not required for using dscompanion as a library.
+api = ["fastapi==0.117.1", "uvicorn==0.37.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["dscompanion*"]
+
+[tool.black]
+line-length = 100
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "F",      # pyflakes (F401 = unused imports, F403 = wildcard imports)
+    "W",      # pycodestyle warnings
+    "I",      # isort import order
+    "UP006",  # List[X] → list[X]
+    "UP007",  # Optional[X] → X | None
+    "UP035",  # deprecated typing imports
+    "T201",   # print() call
+    "F403",   # wildcard imports
+    "RUF100", # unused noqa directives
+]
+ignore = [
+    # This project requires `logger = logging.getLogger(__name__)` immediately
+    # after `import logging`, before all third-party imports — E402 flags exactly
+    # that placement as "import not at top of file". The convention is correct
+    # and deliberate, so this rule is disabled project-wide.
+    "E402",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Not pytest-collected — a manual, human-run CLI script (see its own docstring).
+# print() is the actual intended output mechanism here, not a logging omission.
+"tests/manual_verify_interactive_flow.py" = ["T201"]
+"tests/manual_verify_leaderboard_tuning.py" = ["T201"]
+"tests/manual_verify_environment.py" = ["T201"]
+
+[tool.mypy]
+# Placeholder — strict type-checking disabled for now; enable incrementally
+ignore_errors = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=dscompanion --cov-report=term-missing --cov-fail-under=80"

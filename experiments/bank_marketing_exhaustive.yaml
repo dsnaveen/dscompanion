@@ -1,0 +1,88 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Bank Marketing — Exhaustive End-to-End Run
+# ─────────────────────────────────────────────────────────────────────────────
+# Unlike bank_marketing_baseline.yaml (fast, minimal-options reference run),
+# this config turns on every optional PipelineRunner stage to exercise the
+# full code path: multivariate EDA, SMOTE resampling, Optuna tuning, SHAP +
+# LIME, decile table, and the VIF-not-yet-implemented warning. Expect a
+# multi-minute run (tuning alone is ~15 xgboost fits).
+#
+# Run with:
+#   from dscompanion.pipeline.runner import PipelineRunner
+#   result = PipelineRunner.from_yaml("dscompanion/experiments/bank_marketing_exhaustive.yaml").run()
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: bank_marketing_exhaustive
+version: "1.0"
+description: "UCI Bank Marketing — exhaustive run exercising every optional PipelineRunner stage"
+owner: "scientist_name"
+
+# ── Data ─────────────────────────────────────────────────────────────────────
+data:
+  path: ../data/bank_marketing_clean.parquet   # relative to dscompanion/ — see bank_marketing_baseline.yaml for why
+  format: parquet
+  target: subscribed
+
+# ── Split ─────────────────────────────────────────────────────────────────────
+split:
+  method: stratified
+  test_size: 0.20
+  val_size: 0.10
+
+# ── EDA ───────────────────────────────────────────────────────────────────────
+eda:
+  enabled: true
+  univariate: true
+  bivariate: true
+  multivariate: true          # exercise PCA / correlation matrix on the 7 numeric columns
+
+# ── Feature Engineering ───────────────────────────────────────────────────────
+features:
+  encoder:
+    strategy: target          # -> WoE encoding
+  scaler:
+    strategy: robust
+
+# ── Target Treatment ──────────────────────────────────────────────────────────
+# SMOTE oversamples the minority class to balance train — a different code path
+# than the baseline's scale_pos_weight approach. scale_pos_weight is left at
+# ModelFactory's default (1) below to avoid double-correcting an already-balanced
+# training set.
+target:
+  imbalance:
+    strategy: smote
+
+# ── Feature Selection ─────────────────────────────────────────────────────────
+# vif_enabled=true deliberately exercises PipelineRunner's pre-flight warning
+# path (VIF selector is not yet implemented in dscompanion; the flag is accepted
+# but ignored — see runner.py _preflight()).
+selection:
+  vif_enabled: true
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+model:
+  task: classification
+  algorithm: xgboost
+  params:
+    early_stopping_rounds: null  # see bank_marketing_baseline.yaml — PipelineRunner never passes eval_set
+
+# ── Tuning ────────────────────────────────────────────────────────────────────
+tuning:
+  enabled: true
+  n_trials: 15
+  metric: roc_auc
+  direction: maximize
+  backend: optuna
+
+# ── Explainability ────────────────────────────────────────────────────────────
+explain:
+  shap_enabled: true
+  shap_sample_size: 5000
+  shap_top_n: 20
+  lime_enabled: true           # NOTE: not currently wired in PipelineRunner.run() — see report for confirmation
+
+# ── Reporting ─────────────────────────────────────────────────────────────────
+reporting:
+  output_dir: ./reports
+  html_report: false
+  decile_table: true

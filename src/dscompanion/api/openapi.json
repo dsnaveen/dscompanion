@@ -1,0 +1,4358 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "dscompanion API",
+    "description": "REST surface over dscompanion's 13-step interactive pipeline wizard.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/runs": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Create Run",
+        "description": "Creates a new run.\n\nArgs:\n    store (RunStateStore): Injected via ``get_state_store``.\n\nReturns:\n    RunCreateResponse: The new run's ``run_id``.",
+        "operationId": "create_run_api_runs_post",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunCreateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/state": {
+      "get": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Get State",
+        "description": "Returns the current state of a run.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service`` from the ``run_id`` path\n        parameter.\n\nReturns:\n    RunStateResponse: Step statuses, confirmations, audit trail, config preview.",
+        "operationId": "get_state_api_runs__run_id__state_get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/back": {
+      "post": {
+        "tags": [
+          "runs"
+        ],
+        "summary": "Go Back",
+        "description": "Two-phase reset to an earlier step, mirroring the UI's confirm-before-apply back\nbutton.\n\nArgs:\n    body (BackRequest): ``to_step`` and whether this call actually applies the\n        reset (``confirmed=True``) or is just asking for confirmation.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    BackResponse: If ``body.confirmed`` is ``False``, only\n    ``requires_confirmation=True`` is set. Otherwise the reset is applied and the\n    updated state is returned.",
+        "operationId": "go_back_api_runs__run_id__back_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/jobs/{job_id}": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Get Job Status",
+        "description": "Returns a background job's current status and progress.\n\nArgs:\n    job_id (str): The job identifier returned when the job was started.\n    run (RunState): Injected via ``get_pipeline_service`` from the ``run_id`` path\n        parameter.\n\nReturns:\n    JobStatusResponse: Current status, progress entries, and result/error once\n    finished.\n\nRaises:\n    HTTPException: 404, if ``job_id`` is not known for this run.",
+        "operationId": "get_job_status_api_runs__run_id__jobs__job_id__get",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/data-files": {
+      "get": {
+        "tags": [
+          "data-files"
+        ],
+        "summary": "Get Data Files",
+        "description": "Lists server-side data files available for Step 1.\n\nArgs:\n    None\n\nReturns:\n    DataFilesResponse: Sorted relative paths of available data files.",
+        "operationId": "get_data_files_api_data_files_get",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DataFilesResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/transformer-registry": {
+      "get": {
+        "tags": [
+          "transformer-registry"
+        ],
+        "summary": "Get Transformer Registry",
+        "description": "Lists every registered transformer key.\n\nArgs:\n    None\n\nReturns:\n    TransformerRegistryResponse: Valid values for ``TransformStep.transformer``.",
+        "operationId": "get_transformer_registry_api_transformer_registry_get",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransformerRegistryResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/load_data/preview": {
+      "post": {
+        "tags": [
+          "load_data"
+        ],
+        "summary": "Preview",
+        "description": "Loads and previews a dataset without persisting anything.\n\nArgs:\n    body (LoadDataPreviewRequest): Path, format, and sheet name to load.\n    run (RunState): Injected via ``get_pipeline_service`` (unused \u2014 preview does\n        not touch the run \u2014 but required so an unknown ``run_id`` still 404s).\n\nReturns:\n    LoadDataPreviewResponse: Columns, dtypes, row count, duplicate columns.\n\nRaises:\n    HTTPException: 400, if the file can't be read.",
+        "operationId": "preview_api_runs__run_id__steps_load_data_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoadDataPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoadDataPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/load_data/confirm": {
+      "post": {
+        "tags": [
+          "load_data"
+        ],
+        "summary": "Confirm",
+        "description": "Loads a dataset, applies duplicate-column resolutions, and persists it as this\nrun's working dataframe.\n\nArgs:\n    body (LoadDataConfirmRequest): Path, format, sheet name, duplicate\n        resolutions.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    LoadDataConfirmResponse: Final columns and row count.\n\nRaises:\n    HTTPException: 400, if the file can't be read or resolutions are invalid.",
+        "operationId": "confirm_api_runs__run_id__steps_load_data_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoadDataConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoadDataConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/task_target/preview": {
+      "post": {
+        "tags": [
+          "task_target"
+        ],
+        "summary": "Preview",
+        "description": "Validates a candidate task/target choice without persisting anything.\n\nArgs:\n    body (TaskTargetPreviewRequest): Candidate task, target, identifier columns.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    TaskTargetPreviewResponse: Validity, errors, target value counts.\n\nRaises:\n    HTTPException: 400, if Step 1 has not been confirmed for this run.",
+        "operationId": "preview_api_runs__run_id__steps_task_target_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskTargetPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskTargetPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/task_target/confirm": {
+      "post": {
+        "tags": [
+          "task_target"
+        ],
+        "summary": "Confirm",
+        "description": "Re-validates and persists the task/target choice for this run.\n\nArgs:\n    body (TaskTargetConfirmRequest): Task, target, identifier columns.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    TaskTargetConfirmResponse: The confirmed task and target.\n\nRaises:\n    HTTPException: 400, if Step 1 has not been confirmed or the target fails\n        validation.",
+        "operationId": "confirm_api_runs__run_id__steps_task_target_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskTargetConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskTargetConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/split/preview": {
+      "post": {
+        "tags": [
+          "split"
+        ],
+        "summary": "Preview",
+        "description": "Computes a split preview without persisting anything.\n\nArgs:\n    body (SplitPreviewRequest): Split method and parameters.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    SplitPreviewResponse: Row counts and event rates per partition.\n\nRaises:\n    HTTPException: 400, if Steps 1/2 have not been confirmed or the split\n        configuration is invalid.",
+        "operationId": "preview_api_runs__run_id__steps_split_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SplitPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SplitPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/split/confirm": {
+      "post": {
+        "tags": [
+          "split"
+        ],
+        "summary": "Confirm",
+        "description": "Recomputes and persists the split for this run.\n\nArgs:\n    body (SplitConfirmRequest): Split method and parameters.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    SplitConfirmResponse: Row counts per partition.\n\nRaises:\n    HTTPException: 400, if Steps 1/2 have not been confirmed or the split\n        configuration is invalid.",
+        "operationId": "confirm_api_runs__run_id__steps_split_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SplitConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SplitConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/eda/preview": {
+      "post": {
+        "tags": [
+          "eda"
+        ],
+        "summary": "Preview",
+        "description": "Runs the full data quality check without persisting anything (though the fitted\nreport is cached server-side for the column-chart endpoint below).\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    EdaPreviewResponse: Overview, missing-values, univariate, bivariate, and\n    multivariate results.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed for this run.",
+        "operationId": "preview_api_runs__run_id__steps_eda_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdaPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/eda/column-chart": {
+      "post": {
+        "tags": [
+          "eda"
+        ],
+        "summary": "Column Chart",
+        "description": "Builds the chart for one column/feature, on demand.\n\nArgs:\n    body (EdaColumnChartRequest): Chart kind and column/feature name.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    EdaColumnChartResponse: The requested chart.\n\nRaises:\n    HTTPException: 400, if preview hasn't been called yet or the column is invalid.",
+        "operationId": "column_chart_api_runs__run_id__steps_eda_column_chart_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EdaColumnChartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdaColumnChartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/eda/confirm": {
+      "post": {
+        "tags": [
+          "eda"
+        ],
+        "summary": "Confirm",
+        "description": "Marks Step 4 confirmed \u2014 a flag-flip plus audit entries, no data mutation.\n\nArgs:\n    body (EdaConfirmRequest): Whether the check was skipped entirely.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    EdaConfirmResponse: Confirmation and resulting step status.\n\nRaises:\n    HTTPException: 400, if not skipped and preview hasn't been called yet.",
+        "operationId": "confirm_api_runs__run_id__steps_eda_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EdaConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EdaConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/feature_processing/preview": {
+      "post": {
+        "tags": [
+          "feature_processing"
+        ],
+        "summary": "Preview",
+        "description": "Computes every feature column's recommended recipe, without persisting anything.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    FeatureProcessingPreviewResponse: The full candidate list.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed for this run.",
+        "operationId": "preview_api_runs__run_id__steps_feature_processing_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureProcessingPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/feature_processing/transform-preview": {
+      "post": {
+        "tags": [
+          "feature_processing"
+        ],
+        "summary": "Transform Preview",
+        "description": "Fits a real transform chain on the client's current accepted recipes and returns\na before/after sample.\n\nArgs:\n    body (FeatureProcessingTransformPreviewRequest): Current accepted recipes.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    FeatureProcessingTransformPreviewResponse: Before/after sample rows.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed, or the recipes fail\n        to fit.",
+        "operationId": "transform_preview_api_runs__run_id__steps_feature_processing_transform_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeatureProcessingTransformPreviewRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureProcessingTransformPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/feature_processing/confirm": {
+      "post": {
+        "tags": [
+          "feature_processing"
+        ],
+        "summary": "Confirm",
+        "description": "Persists the final recipe/drop decisions for this run.\n\nArgs:\n    body (FeatureProcessingConfirmRequest): Final accepted recipes and dropped\n        columns.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    FeatureProcessingConfirmResponse: Confirmation and accepted/dropped/rejected\n    counts.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed for this run.",
+        "operationId": "confirm_api_runs__run_id__steps_feature_processing_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeatureProcessingConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureProcessingConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/feature_selection/preview": {
+      "post": {
+        "tags": [
+          "feature_selection"
+        ],
+        "summary": "Preview",
+        "description": "Runs feature selection read-only and reports the proposed drop-list.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    FeatureSelectionPreviewResponse: Audit table and removal waterfall chart.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed, or selection itself\n        fails.",
+        "operationId": "preview_api_runs__run_id__steps_feature_selection_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureSelectionPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/feature_selection/confirm": {
+      "post": {
+        "tags": [
+          "feature_selection"
+        ],
+        "summary": "Confirm",
+        "description": "Persists the final removed-columns decision for this run.\n\nArgs:\n    body (FeatureSelectionConfirmRequest): Final removed columns, or a skip flag.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    FeatureSelectionConfirmResponse: Confirmation, status, and removed columns.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed, or the removal would\n        leave no features to train on.",
+        "operationId": "confirm_api_runs__run_id__steps_feature_selection_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FeatureSelectionConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeatureSelectionConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/imbalance/preview": {
+      "post": {
+        "tags": [
+          "imbalance"
+        ],
+        "summary": "Preview",
+        "description": "Reports the confirmed training split's class balance.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    ImbalancePreviewResponse: Class balance and whether it's roughly even.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed for this run.",
+        "operationId": "preview_api_runs__run_id__steps_imbalance_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImbalancePreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/imbalance/confirm": {
+      "post": {
+        "tags": [
+          "imbalance"
+        ],
+        "summary": "Confirm",
+        "description": "Persists the confirmed imbalance strategy for this run.\n\nArgs:\n    body (ImbalanceConfirmRequest): The chosen strategy.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    ImbalanceConfirmResponse: Confirmation and the row-count preview.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed for this run.",
+        "operationId": "confirm_api_runs__run_id__steps_imbalance_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImbalanceConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImbalanceConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/train/preview": {
+      "post": {
+        "tags": [
+          "train"
+        ],
+        "summary": "Preview",
+        "description": "Reports the available algorithms and feature-column count.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    TrainPreviewResponse: Algorithm picker options and feature count.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed for this run.",
+        "operationId": "preview_api_runs__run_id__steps_train_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/train/leaderboard/start": {
+      "post": {
+        "tags": [
+          "train"
+        ],
+        "summary": "Leaderboard Start",
+        "description": "Starts a background leaderboard comparison across every supported algorithm.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n    store (RunStateStore): Injected via ``get_state_store``.\n\nReturns:\n    LeaderboardStartResponse: The new job's id \u2014 poll\n    ``GET /api/runs/{run_id}/jobs/{job_id}`` for progress and the result.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed, or no\n        feature columns remain.",
+        "operationId": "leaderboard_start_api_runs__run_id__steps_train_leaderboard_start_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/train/confirm": {
+      "post": {
+        "tags": [
+          "train"
+        ],
+        "summary": "Confirm",
+        "description": "Trains (single-algorithm path) or accepts an already-trained leaderboard\nwinner, then persists the result.\n\nArgs:\n    body (TrainConfirmRequest): The algorithm to confirm.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    TrainConfirmResponse: Confirmation and a brief metrics summary.\n\nRaises:\n    HTTPException: 400, if Steps 1-3 have not been confirmed, or training\n        fails.",
+        "operationId": "confirm_api_runs__run_id__steps_train_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrainConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrainConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/tuning/preview": {
+      "post": {
+        "tags": [
+          "tuning"
+        ],
+        "summary": "Preview",
+        "description": "Reports whether tuning is available for Step 8's confirmed algorithm.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    TuningPreviewResponse: Availability and slider bounds.\n\nRaises:\n    HTTPException: 400, if Step 8 has not been confirmed for this run.",
+        "operationId": "preview_api_runs__run_id__steps_tuning_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TuningPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/tuning/tune/start": {
+      "post": {
+        "tags": [
+          "tuning"
+        ],
+        "summary": "Tune Start",
+        "description": "Starts a background Optuna tuning run.\n\nArgs:\n    body (TuningStartRequest): Number of trials to run.\n    run (RunState): Injected via ``get_pipeline_service``.\n    store (RunStateStore): Injected via ``get_state_store``.\n\nReturns:\n    TuningStartResponse: The new job's id \u2014 poll\n    ``GET /api/runs/{run_id}/jobs/{job_id}`` for progress and the result.\n\nRaises:\n    HTTPException: 400, if Step 8 has not been confirmed for this run.",
+        "operationId": "tune_start_api_runs__run_id__steps_tuning_tune_start_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TuningStartRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TuningStartResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/tuning/confirm": {
+      "post": {
+        "tags": [
+          "tuning"
+        ],
+        "summary": "Confirm",
+        "description": "Persists the final model choice (tuned or Step 8's default).\n\nArgs:\n    body (TuningConfirmRequest): Whether to accept the tuned model.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    TuningConfirmResponse: Confirmation, whether tuned, and the best score.\n\nRaises:\n    HTTPException: 400, if Step 8 has not been confirmed, or\n        ``use_tuned=True`` but no tuned model is available.",
+        "operationId": "confirm_api_runs__run_id__steps_tuning_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TuningConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TuningConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/evaluate/preview": {
+      "post": {
+        "tags": [
+          "evaluate"
+        ],
+        "summary": "Preview",
+        "description": "Evaluates the final model from Step 9 and reports the full breakdown.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    EvaluatePreviewResponse: Full per-split metric breakdown, the\n    tuned-vs-default baseline, and any suspicious-pattern flags.\n\nRaises:\n    HTTPException: 400, if Step 9 has not been confirmed for this run.",
+        "operationId": "preview_api_runs__run_id__steps_evaluate_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluatePreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/evaluate/confirm": {
+      "post": {
+        "tags": [
+          "evaluate"
+        ],
+        "summary": "Confirm",
+        "description": "Records Step 10 completion \u2014 a flag-flip only, no persisted user choice.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    EvaluateConfirmResponse: Confirmation.\n\nRaises:\n    HTTPException: 400, if Step 9 has not been confirmed for this run.",
+        "operationId": "confirm_api_runs__run_id__steps_evaluate_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluateConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/calibration/preview": {
+      "post": {
+        "tags": [
+          "calibration"
+        ],
+        "summary": "Preview",
+        "description": "Fits calibration on the final model and reports ECE before/after.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    CalibrationPreviewResponse: Availability, ECE before/after, and the\n    apply/skip recommendation.\n\nRaises:\n    HTTPException: 400, if Step 9 has not been confirmed, or no\n        held-out split is available, for this run.",
+        "operationId": "preview_api_runs__run_id__steps_calibration_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalibrationPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/calibration/confirm": {
+      "post": {
+        "tags": [
+          "calibration"
+        ],
+        "summary": "Confirm",
+        "description": "Applies or skips calibration and persists ``calibrated_model``.\n\nArgs:\n    body (CalibrationConfirmRequest): Whether to apply calibration.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    CalibrationConfirmResponse: Confirmation and whether calibration was\n    actually applied.\n\nRaises:\n    HTTPException: 400, if Step 9 has not been confirmed, or no\n        held-out split is available, for this run.",
+        "operationId": "confirm_api_runs__run_id__steps_calibration_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CalibrationConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalibrationConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/shap/preview": {
+      "post": {
+        "tags": [
+          "shap"
+        ],
+        "summary": "Preview",
+        "description": "Reports whether SHAP is available for this run, without computing anything.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    ShapPreviewResponse: Availability \u2014 always ``True`` today.\n\nRaises:\n    HTTPException: 400, if Step 11 has not been confirmed for this run.",
+        "operationId": "preview_api_runs__run_id__steps_shap_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShapPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/shap/run": {
+      "post": {
+        "tags": [
+          "shap"
+        ],
+        "summary": "Shap Run",
+        "description": "Fits ``SHAPExplainer`` on a sample of the held-out split and returns the summary.\n\nExplicit opt-in the caller must trigger \u2014 never called automatically by\n``preview``, since SHAP computation is relatively expensive.\n\nArgs:\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    ShapRunResponse: The summary chart, top-10 feature table, split\n    used, and row count.\n\nRaises:\n    HTTPException: 400, if Step 11 has not been confirmed, or no\n        held-out data is available, for this run.",
+        "operationId": "shap_run_api_runs__run_id__steps_shap_run_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShapRunResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/shap/confirm": {
+      "post": {
+        "tags": [
+          "shap"
+        ],
+        "summary": "Confirm",
+        "description": "Records Step 12 completion.\n\nArgs:\n    body (ShapConfirmRequest): Whether SHAP was actually run.\n    run (RunState): Injected via ``get_pipeline_service``.\n\nReturns:\n    ShapConfirmResponse: Confirmation.",
+        "operationId": "confirm_api_runs__run_id__steps_shap_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ShapConfirmRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShapConfirmResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/report/preview": {
+      "post": {
+        "tags": [
+          "steps-unported"
+        ],
+        "summary": "Preview",
+        "operationId": "preview_api_runs__run_id__steps_report_preview_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/{run_id}/steps/report/confirm": {
+      "post": {
+        "tags": [
+          "steps-unported"
+        ],
+        "summary": "Confirm",
+        "operationId": "confirm_api_runs__run_id__steps_report_confirm_post",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          },
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Api-Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "BackRequest": {
+        "properties": {
+          "to_step": {
+            "type": "string",
+            "enum": [
+              "load_data",
+              "task_target",
+              "split",
+              "eda",
+              "feature_processing",
+              "feature_selection",
+              "imbalance",
+              "train",
+              "tuning",
+              "evaluate",
+              "calibration",
+              "shap",
+              "report"
+            ],
+            "title": "To Step"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "to_step"
+        ],
+        "title": "BackRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/back``.\n\nArgs:\n    to_step (StepId): The step to go back to \u2014 this step and every step\n        after it will be invalidated once confirmed.\n    confirmed (bool): ``False`` (default) for the first call \u2014 the response\n        will ask for confirmation without changing anything.  ``True`` to\n        actually apply the reset, mirroring the UI's two-phase back button."
+      },
+      "BackResponse": {
+        "properties": {
+          "requires_confirmation": {
+            "type": "boolean",
+            "title": "Requires Confirmation"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RunStateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "requires_confirmation"
+        ],
+        "title": "BackResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/back``.\n\nArgs:\n    requires_confirmation (bool): ``True`` when this call was the first\n        phase (``confirmed=False`` in the request) \u2014 call again with\n        ``confirmed=True`` to actually apply the reset.\n    state (RunStateResponse | None): The updated state, populated only once\n        the reset has actually been applied (``requires_confirmation=False``)."
+      },
+      "CalibrationConfirmRequest": {
+        "properties": {
+          "apply": {
+            "type": "boolean",
+            "title": "Apply"
+          }
+        },
+        "type": "object",
+        "required": [
+          "apply"
+        ],
+        "title": "CalibrationConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/calibration/confirm``.\n\nArgs:\n    apply (bool): ``True`` to wrap the model with calibrated\n        probabilities, ``False`` to keep the raw scores unchanged.\n        Ignored (treated as ``False``) for non-classification tasks."
+      },
+      "CalibrationConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          },
+          "applied": {
+            "type": "boolean",
+            "title": "Applied"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "applied"
+        ],
+        "title": "CalibrationConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/calibration/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success.\n    applied (bool): Whether calibration was actually applied \u2014 ``False``\n        for a non-classification task regardless of the request."
+      },
+      "CalibrationPreviewResponse": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "split_used": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Split Used"
+          },
+          "ece_before": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ece Before"
+          },
+          "ece_after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ece After"
+          },
+          "recommend_apply": {
+            "type": "boolean",
+            "title": "Recommend Apply",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "title": "CalibrationPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/calibration/preview``.\n\nArgs:\n    available (bool): ``False`` for non-classification tasks \u2014 the\n        frontend should auto-skip straight to confirming with\n        ``apply=False``, matching Streamlit's silent auto-skip rather\n        than offering a choice that has no effect.\n    split_used (str | None): Held-out split the calibrator was fit and\n        evaluated on (``\"val\"`` if available, else ``\"test\"``, else\n        ``\"train\"``). ``None`` when ``available=False``.\n    ece_before (float | None): Expected Calibration Error before\n        calibration. ``None`` when ``available=False``.\n    ece_after (float | None): Expected Calibration Error after isotonic\n        calibration. ``None`` when ``available=False``.\n    recommend_apply (bool): ``True`` when calibration meaningfully\n        reduced ECE \u2014 drives which of the two choice buttons the\n        frontend highlights as primary. Always ``False`` when\n        ``available=False``."
+      },
+      "ColumnRecipe": {
+        "properties": {
+          "column": {
+            "type": "string",
+            "title": "Column"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/TransformStep"
+            },
+            "type": "array",
+            "title": "Steps"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "manual",
+              "recommended"
+            ],
+            "title": "Source",
+            "default": "manual"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rationale"
+          }
+        },
+        "type": "object",
+        "required": [
+          "column"
+        ],
+        "title": "ColumnRecipe",
+        "description": "An ordered, human-readable transformation recipe for one column.\n\nThe unit meant to be logged as JSON and rendered in a model\ncard \u2014 small and diffable between experiment runs, independent of the\nfitted (opaque, pickled) ``FeatureTransformChain`` that executes it.\n\nArgs:\n    column (str): Name of the column this recipe applies to.\n    steps (list[TransformStep]): Ordered list of transformation steps,\n        applied in sequence (step 1's output feeds step 2's input, etc.).\n        An empty list means the column passes through unchanged.\n    source (Literal[\"manual\", \"recommended\"]): Whether this recipe was\n        hand-built by a user or produced by a theory-driven\n        recommendation engine. Defaults to ``\"manual\"``.\n    rationale (str | None): Human-readable explanation of why these\n        steps were chosen \u2014 most useful for a ``\"recommended\"`` recipe\n        under audit/compliance review. Defaults to ``None``."
+      },
+      "DataFilesResponse": {
+        "properties": {
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "type": "object",
+        "required": [
+          "files"
+        ],
+        "title": "DataFilesResponse",
+        "description": "Response for ``GET /api/data-files`` \u2014 lists server-side files Step 1 can load.\n\nNot run-scoped (no ``run_id`` in the path) since it doesn't touch any run's state \u2014\nmirrors ``dscompanion/app/interactive_step1.py``'s ``_list_data_files()``, which the browser\ncan't do itself (no filesystem access). Browser file upload is a separate, deferred\nconcern.\n\nArgs:\n    files (list[str]): Relative paths (from the data root) of every ``.csv``/\n        ``.parquet``/``.xlsx`` file found, sorted."
+      },
+      "EdaColumnChartRequest": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "numeric_kde",
+              "categorical_bar",
+              "bivariate_rate"
+            ],
+            "title": "Kind"
+          },
+          "column": {
+            "type": "string",
+            "title": "Column"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "column"
+        ],
+        "title": "EdaColumnChartRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/4/column-chart``.\n\nArgs:\n    kind (str): Which per-column chart to build \u2014 mirrors\n        ``interactive_step4.py``'s three selectbox-driven charts.\n    column (str): The column (or feature, for ``bivariate_rate``) to chart."
+      },
+      "EdaColumnChartResponse": {
+        "properties": {
+          "figure": {
+            "type": "object",
+            "title": "Figure"
+          },
+          "caption": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption"
+          }
+        },
+        "type": "object",
+        "required": [
+          "figure"
+        ],
+        "title": "EdaColumnChartResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/4/column-chart``.\n\nArgs:\n    figure (dict[str, Any]): Plotly figure, JSON-safe via ``fig.to_json()``.\n    caption (str | None): Extra context only ``bivariate_rate`` sets \u2014 the IV\n        predictive-power gloss (e.g. ``\"predictive power: Strong\"``)."
+      },
+      "EdaConfirmRequest": {
+        "properties": {
+          "skipped": {
+            "type": "boolean",
+            "title": "Skipped",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "EdaConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/4/confirm``.\n\nArgs:\n    skipped (bool): ``True`` when the user turned off \"Run a data quality check\"\n        entirely \u2014 mirrors ``interactive_step4.py``'s ``run_eda`` toggle. When\n        ``True``, no ``EDAReport`` is required to have been previewed first."
+      },
+      "EdaConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "done",
+              "flagged"
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "status"
+        ],
+        "title": "EdaConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/4/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success.\n    status (str): ``\"flagged\"`` when skipped or the check failed, ``\"done\"``\n        otherwise \u2014 mirrors ``interactive_step4.py``'s ``set_step_status`` calls."
+      },
+      "EdaPreviewResponse": {
+        "properties": {
+          "overview": {
+            "type": "object",
+            "title": "Overview"
+          },
+          "missing_values_chart": {
+            "type": "object",
+            "title": "Missing Values Chart"
+          },
+          "missing_correlation_heatmap": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Correlation Heatmap"
+          },
+          "high_missing_alerts": {
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "type": "array",
+            "title": "High Missing Alerts"
+          },
+          "numeric_summary": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Numeric Summary"
+          },
+          "categorical_summary": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Categorical Summary"
+          },
+          "iv_table": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Iv Table"
+          },
+          "pearson_heatmap": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pearson Heatmap"
+          },
+          "high_correlation_pairs": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "High Correlation Pairs"
+          },
+          "vif_table": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Vif Table"
+          },
+          "cramers_v_table": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Cramers V Table"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/EdaThresholds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "overview",
+          "missing_values_chart",
+          "missing_correlation_heatmap",
+          "high_missing_alerts",
+          "numeric_summary",
+          "categorical_summary",
+          "iv_table",
+          "pearson_heatmap",
+          "high_correlation_pairs",
+          "vif_table",
+          "cramers_v_table",
+          "thresholds"
+        ],
+        "title": "EdaPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/4/preview`` \u2014 read-only, computes\n(and caches server-side) the full ``EDAReport`` in one call. Per-column charts\n(numeric KDE, categorical bar, bivariate target-rate) are fetched separately via\n``POST .../steps/4/column-chart`` rather than included here, since only one column\nis ever viewed at a time \u2014 mirrors ``interactive_step4.py``'s selectbox-driven charts.\n\nArgs:\n    overview (dict[str, Any]): ``EDAReport.overview_summary()`` \u2014 row/column/missing/\n        duplicate counts.\n    missing_values_chart (dict[str, Any]): Plotly figure (JSON-safe via\n        ``fig.to_json()``) \u2014 missing % by feature, sorted descending.\n    missing_correlation_heatmap (dict[str, Any] | None): Plotly figure, or ``None``\n        when there's nothing to show (fewer than 2 partially-missing columns).\n    high_missing_alerts (list[dict[str, str]]): ``{\"feature\", \"detail\"}`` entries\n        from ``EDAReport.alerts()`` filtered to ``HIGH_MISSING`` type.\n    numeric_summary (list[dict[str, Any]]): ``EDAReport.numeric_summary()`` as records.\n    categorical_summary (list[dict[str, Any]]): ``EDAReport.categorical_summary()``\n        as records.\n    iv_table (list[dict[str, Any]]): ``EDAReport.iv_table()`` as records, IV-ranked.\n    pearson_heatmap (dict[str, Any] | None): Plotly figure, or ``None`` when fewer\n        than 2 numeric columns exist.\n    high_correlation_pairs (list[dict[str, Any]]): ``EDAReport.flag_high_correlation()``\n        as records. Empty when no pairs exceed the threshold.\n    vif_table (list[dict[str, Any]]): ``EDAReport.vif_table()`` as records. Empty\n        when fewer than 2 numeric columns exist.\n    cramers_v_table (list[dict[str, Any]]): ``EDAReport.cramers_v_table()`` as\n        records. Empty when fewer than 2 categorical columns exist.\n    thresholds (EdaThresholds): The actual threshold values used, for captions."
+      },
+      "EdaThresholds": {
+        "properties": {
+          "near_zero_variance": {
+            "type": "number",
+            "title": "Near Zero Variance"
+          },
+          "high_cardinality": {
+            "type": "integer",
+            "title": "High Cardinality"
+          },
+          "correlation": {
+            "type": "number",
+            "title": "Correlation"
+          },
+          "vif": {
+            "type": "number",
+            "title": "Vif"
+          }
+        },
+        "type": "object",
+        "required": [
+          "near_zero_variance",
+          "high_cardinality",
+          "correlation",
+          "vif"
+        ],
+        "title": "EdaThresholds",
+        "description": "The actual threshold values used to compute this preview \u2014 returned so the\nfrontend's explanatory captions never hardcode (and drift from) ``dscompanion.config.settings``.\n\nArgs:\n    near_zero_variance (float): ``settings.near_zero_variance_threshold``.\n    high_cardinality (int): ``settings.high_cardinality_threshold``.\n    correlation (float): ``settings.correlation_threshold``.\n    vif (float): ``settings.vif_threshold``."
+      },
+      "EvaluateBaseline": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metric"
+        ],
+        "title": "EvaluateBaseline",
+        "description": "Step 8's untuned baseline value for one headline metric, for the\ntuned-vs-default delta shown when Step 9's tuning was accepted.\n\nArgs:\n    metric (str): Metric key (e.g. ``\"roc_auc\"``).\n    value (float | None): Step 8's untuned model's value on\n        ``primary_split``, ``None`` if unavailable."
+      },
+      "EvaluateConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed"
+        ],
+        "title": "EvaluateConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/evaluate/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success."
+      },
+      "EvaluateFlag": {
+        "properties": {
+          "level": {
+            "type": "string",
+            "title": "Level"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "level",
+          "message"
+        ],
+        "title": "EvaluateFlag",
+        "description": "One suspicious-pattern warning from Step 10's evaluation.\n\nArgs:\n    level (str): One of ``\"error\"``, ``\"warning\"``, ``\"info\"``.\n    message (str): Plain-language Markdown warning text."
+      },
+      "EvaluateMetricRow": {
+        "properties": {
+          "split": {
+            "type": "string",
+            "title": "Split"
+          },
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "gloss": {
+            "type": "string",
+            "title": "Gloss"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "split",
+          "metric",
+          "label",
+          "gloss"
+        ],
+        "title": "EvaluateMetricRow",
+        "description": "One ``(split, metric)`` pair from Step 10's full metric breakdown.\n\nArgs:\n    split (str): One of ``\"train\"``, ``\"val\"``, ``\"test\"``, ``\"oot\"``.\n    metric (str): Metric key (e.g. ``\"roc_auc\"``).\n    label (str): Plain-language display label (e.g. ``\"AUC-ROC\"``).\n    gloss (str): Plain-language explanation of what the metric means.\n    value (float | None): Metric value, ``None`` if unavailable or ``NaN``\n        for this split."
+      },
+      "EvaluatePreviewResponse": {
+        "properties": {
+          "algorithm": {
+            "type": "string",
+            "title": "Algorithm"
+          },
+          "tuned": {
+            "type": "boolean",
+            "title": "Tuned"
+          },
+          "primary_split": {
+            "type": "string",
+            "title": "Primary Split"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluateMetricRow"
+            },
+            "type": "array",
+            "title": "Metrics"
+          },
+          "baseline": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluateBaseline"
+            },
+            "type": "array",
+            "title": "Baseline"
+          },
+          "flags": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluateFlag"
+            },
+            "type": "array",
+            "title": "Flags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "algorithm",
+          "tuned",
+          "primary_split"
+        ],
+        "title": "EvaluatePreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/evaluate/preview``.\n\nArgs:\n    algorithm (str): The confirmed algorithm from Step 8.\n    tuned (bool): Whether Step 9's tuned model was accepted \u2014 controls\n        whether ``baseline`` is populated.\n    primary_split (str): The split used for headline metrics and flags \u2014\n        ``\"val\"`` if available, else ``\"test\"``, else ``\"train\"``.\n    metrics (list[EvaluateMetricRow]): Full per-split metric breakdown,\n        headline metrics (``roc_auc``, ``gini``, ``ks_statistic``) first,\n        then the remaining supporting metrics.\n    baseline (list[EvaluateBaseline]): Step 8's untuned headline-metric\n        values on ``primary_split``, for the \"vs. default\" delta shown\n        when tuned. Empty when ``tuned=False``.\n    flags (list[EvaluateFlag]): Suspicious-pattern warnings. Empty when\n        none were found."
+      },
+      "FeatureProcessingCandidate": {
+        "properties": {
+          "column": {
+            "type": "string",
+            "title": "Column"
+          },
+          "is_numeric": {
+            "type": "boolean",
+            "title": "Is Numeric"
+          },
+          "missing_rows": {
+            "type": "integer",
+            "title": "Missing Rows"
+          },
+          "missing_pct": {
+            "type": "number",
+            "title": "Missing Pct"
+          },
+          "suggested_reasons": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Suggested Reasons"
+          },
+          "needs_attention": {
+            "type": "boolean",
+            "title": "Needs Attention"
+          },
+          "recommended": {
+            "$ref": "#/components/schemas/ColumnRecipe"
+          }
+        },
+        "type": "object",
+        "required": [
+          "column",
+          "is_numeric",
+          "missing_rows",
+          "missing_pct",
+          "suggested_reasons",
+          "needs_attention",
+          "recommended"
+        ],
+        "title": "FeatureProcessingCandidate",
+        "description": "One feature column's recommendation, for Step 5's preview.\n\nArgs:\n    column (str): Column name.\n    is_numeric (bool): Which summary table (and recommender rules) produced\n        ``recommended`` \u2014 also drives the frontend's \"Reject\" safety-warning text.\n    missing_rows (int): Missing-row count for this column on the training set.\n    missing_pct (float): Missing-row percentage (0-100 scale).\n    suggested_reasons (list[str]): Non-empty when Step 4's EDA flagged this column\n        for a reason other than missingness (e.g. ``\"constant\"``, ``\"low_iv\"``) \u2014\n        empty when Step 4 was skipped/failed or nothing was flagged.\n    needs_attention (bool): ``True`` if this column belongs in the \"Needing\n        Attention\" group (has missing values or an EDA red flag); ``False`` for\n        the \"Rest\" group. Lets the frontend render both groups from one flat list.\n    recommended (ColumnRecipe): The theory-driven recommendation\n        (``recommend_column_recipe()``) \u2014 ``source=\"recommended\"``, possibly zero\n        steps for a clean column."
+      },
+      "FeatureProcessingConfirmRequest": {
+        "properties": {
+          "recipes": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ColumnRecipe"
+            },
+            "type": "object",
+            "title": "Recipes"
+          },
+          "dropped_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dropped Columns"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipes"
+        ],
+        "title": "FeatureProcessingConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/feature_processing/confirm``.\n\nArgs:\n    recipes (dict[str, ColumnRecipe]): Final accepted recipes (accepted columns\n        only) \u2014 becomes this run's canonical ``feature_processing_recipes``.\n    dropped_columns (list[str]): Columns explicitly chosen \"Drop\" \u2014 removed\n        entirely, never reaching ``FeatureTransformChain``."
+      },
+      "FeatureProcessingConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          },
+          "n_accepted": {
+            "type": "integer",
+            "title": "N Accepted"
+          },
+          "n_dropped": {
+            "type": "integer",
+            "title": "N Dropped"
+          },
+          "n_rejected": {
+            "type": "integer",
+            "title": "N Rejected"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "n_accepted",
+          "n_dropped",
+          "n_rejected"
+        ],
+        "title": "FeatureProcessingConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/feature_processing/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success.\n    n_accepted (int): Number of columns with a non-empty accepted recipe.\n    n_dropped (int): Number of columns dropped entirely.\n    n_rejected (int): Number of columns left as raw passthrough (present in the\n        candidate set but absent from both ``recipes`` and ``dropped_columns``)."
+      },
+      "FeatureProcessingPreviewResponse": {
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureProcessingCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "candidates"
+        ],
+        "title": "FeatureProcessingPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/feature_processing/preview``.\n\nArgs:\n    candidates (list[FeatureProcessingCandidate]): One entry per feature column\n        eligible for a recipe decision \u2014 excludes the date column (Step 3),\n        identifier columns (Step 2), and any boolean/datetime-dtype column (out\n        of scope for recipe treatment, matching ``DateFeatureExtractor`` being a\n        separate mechanism). Ordered \"Needing Attention\" columns first, then\n        \"Rest\", matching ``interactive_step_feature_processing.py``'s grouping."
+      },
+      "FeatureProcessingTransformPreviewRequest": {
+        "properties": {
+          "recipes": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ColumnRecipe"
+            },
+            "type": "object",
+            "title": "Recipes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "recipes"
+        ],
+        "title": "FeatureProcessingTransformPreviewRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/feature_processing/transform-preview``.\n\nArgs:\n    recipes (dict[str, ColumnRecipe]): The client's *current* (possibly edited)\n        accepted recipes \u2014 only columns the user has set to \"Accept\" belong here,\n        matching ``_render_live_preview()``'s ``accepted`` dict."
+      },
+      "FeatureProcessingTransformPreviewResponse": {
+        "properties": {
+          "before": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Before"
+          },
+          "after": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "After"
+          },
+          "columns_before": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns Before"
+          },
+          "columns_after": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "before",
+          "after",
+          "columns_before",
+          "columns_after"
+        ],
+        "title": "FeatureProcessingTransformPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/feature_processing/transform-preview``.\n\nArgs:\n    before (list[dict[str, Any]]): First 5 training rows, accepted columns only,\n        JSON-safe records.\n    after (list[dict[str, Any]]): Same 5 rows after ``FeatureTransformChain``\n        fit_transform \u2014 column-expanding steps (e.g. one-hot) show their expanded\n        output columns, so ``after``'s keys may not match ``before``'s.\n    columns_before (list[str]): ``before``'s column order.\n    columns_after (list[str]): ``after``'s column order."
+      },
+      "FeatureSelectionAuditRow": {
+        "properties": {
+          "feature": {
+            "type": "string",
+            "title": "Feature"
+          },
+          "removed_by": {
+            "type": "string",
+            "title": "Removed By"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason"
+          },
+          "original_position": {
+            "type": "integer",
+            "title": "Original Position"
+          }
+        },
+        "type": "object",
+        "required": [
+          "feature",
+          "removed_by",
+          "reason",
+          "original_position"
+        ],
+        "title": "FeatureSelectionAuditRow",
+        "description": "One proposed-removal row from ``FeatureSelectionPipeline.audit_report()``.\n\nArgs:\n    feature (str): Feature (post-Step-5-transform) column name.\n    removed_by (str): Selector class name that flagged this feature (e.g.\n        ``\"CorrelationSelector\"``) \u2014 the frontend maps this to a plain-language\n        stage label, mirroring ``interactive_step_feature_selection.py``'s\n        ``_STAGE_LABELS``.\n    reason (str): Plain-language reason for the flag.\n    original_position (int): 0-based column index in the transformed input, or\n        ``-1`` if not found."
+      },
+      "FeatureSelectionConfirmRequest": {
+        "properties": {
+          "removed_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Removed Columns"
+          },
+          "skipped": {
+            "type": "boolean",
+            "title": "Skipped",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "FeatureSelectionConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/feature_selection/confirm``.\n\nArgs:\n    removed_columns (list[str]): Features to actually remove \u2014 a subset of (or\n        equal to) the preview's flagged set, since the user can uncheck any row.\n    skipped (bool): ``True`` when selection itself failed and the user chose to\n        continue without it \u2014 mirrors ``interactive_step_feature_selection.py``'s\n        \"Continue without feature selection\" recovery path. When ``True``,\n        ``removed_columns`` is ignored (treated as empty)."
+      },
+      "FeatureSelectionConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "done",
+              "flagged"
+            ],
+            "title": "Status"
+          },
+          "removed_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Removed Columns"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "status",
+          "removed_columns"
+        ],
+        "title": "FeatureSelectionConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/feature_selection/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success.\n    status (str): ``\"flagged\"`` when skipped, ``\"done\"`` otherwise.\n    removed_columns (list[str]): The columns actually persisted as removed."
+      },
+      "FeatureSelectionPreviewResponse": {
+        "properties": {
+          "audit": {
+            "items": {
+              "$ref": "#/components/schemas/FeatureSelectionAuditRow"
+            },
+            "type": "array",
+            "title": "Audit"
+          },
+          "waterfall_chart": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waterfall Chart"
+          },
+          "total_features": {
+            "type": "integer",
+            "title": "Total Features"
+          }
+        },
+        "type": "object",
+        "required": [
+          "audit",
+          "waterfall_chart",
+          "total_features"
+        ],
+        "title": "FeatureSelectionPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/feature_selection/preview``.\n\nArgs:\n    audit (list[FeatureSelectionAuditRow]): One row per feature flagged for\n        removal \u2014 empty when nothing was flagged.\n    waterfall_chart (dict[str, Any] | None): Plotly figure (JSON-safe via\n        ``fig.to_json()``), or ``None`` when ``audit`` is empty (nothing to plot).\n    total_features (int): Column count of the Step-5-transformed feature set \u2014\n        used to detect the \"every feature flagged\" edge case client-side."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ImbalanceConfirmRequest": {
+        "properties": {
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "class_weight",
+              "smote",
+              "undersample",
+              "none"
+            ],
+            "title": "Strategy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "strategy"
+        ],
+        "title": "ImbalanceConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/imbalance/confirm``.\n\nArgs:\n    strategy (str): One of ``\"class_weight\"``, ``\"smote\"``, ``\"undersample\"``,\n        ``\"none\"``. ``\"oversample\"`` is deliberately excluded \u2014 accepted by\n        ``ImbalanceConfig`` but unhandled by ``ImbalanceHandler._build_sampler()``,\n        so offering it would let the user choose a path that breaks at training\n        time (Step 8)."
+      },
+      "ImbalanceConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          },
+          "strategy": {
+            "type": "string",
+            "title": "Strategy"
+          },
+          "rows_before": {
+            "type": "integer",
+            "title": "Rows Before"
+          },
+          "rows_after": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rows After"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "strategy",
+          "rows_before",
+          "rows_after"
+        ],
+        "title": "ImbalanceConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/imbalance/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success.\n    strategy (str): The confirmed strategy.\n    rows_before (int): Training-set row count before resampling.\n    rows_after (int | None): Estimated post-resample row count for\n        ``\"smote\"``/``\"undersample\"`` (``sampling_strategy=\"auto\"`` assumption,\n        balancing both classes to the same count); ``None`` for\n        ``\"class_weight\"``/``\"none\"``, which never change row counts."
+      },
+      "ImbalancePreviewResponse": {
+        "properties": {
+          "applicable": {
+            "type": "boolean",
+            "title": "Applicable"
+          },
+          "n_train": {
+            "type": "integer",
+            "title": "N Train"
+          },
+          "event_rate": {
+            "type": "number",
+            "title": "Event Rate"
+          },
+          "is_balanced": {
+            "type": "boolean",
+            "title": "Is Balanced"
+          },
+          "class_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Class Counts"
+          },
+          "balanced_min_event_rate": {
+            "type": "number",
+            "title": "Balanced Min Event Rate"
+          }
+        },
+        "type": "object",
+        "required": [
+          "applicable",
+          "n_train",
+          "event_rate",
+          "is_balanced",
+          "class_counts",
+          "balanced_min_event_rate"
+        ],
+        "title": "ImbalancePreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/imbalance/preview``.\n\nArgs:\n    applicable (bool): ``False`` for non-classification tasks \u2014 imbalance\n        handling only applies to classification, matching\n        ``interactive_step_imbalance.py``'s early-exit.\n    n_train (int): Training-set row count.\n    event_rate (float): Fraction of training rows with target ``1``.\n    is_balanced (bool): Whether ``event_rate`` falls within\n        ``settings.imbalance_balanced_min_event_rate``'s symmetric band.\n    class_counts (dict[str, int]): ``{\"0\": n_zeros, \"1\": n_ones}``.\n    balanced_min_event_rate (float): The actual threshold used, for captions \u2014\n        never hardcoded in the frontend."
+      },
+      "JobStatusResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "step": {
+            "type": "string",
+            "enum": [
+              "load_data",
+              "task_target",
+              "split",
+              "eda",
+              "feature_processing",
+              "feature_selection",
+              "imbalance",
+              "train",
+              "tuning",
+              "evaluate",
+              "calibration",
+              "shap",
+              "report"
+            ],
+            "title": "Step"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "done",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "progress": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Progress"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "step",
+          "status",
+          "progress"
+        ],
+        "title": "JobStatusResponse",
+        "description": "Response for ``GET /api/runs/{run_id}/jobs/{job_id}`` \u2014 polled by the\nfrontend the same way Step 8's ``st.fragment(run_every=1)`` polls\n``int.step8.lb_progress`` today.\n\nArgs:\n    job_id (str): This job's identifier.\n    step (StepId): Which wizard step started this job (``\"train\"`` or\n        ``\"tuning\"``).\n    status (str): One of ``\"running\"``, ``\"done\"``, ``\"error\"``.\n    progress (list[dict]): Incremental progress entries \u2014 same\n        ``{\"algorithm\"/\"trial\", \"status\", \"detail\"}`` shape Step 8's\n        worker already produces.\n    result (dict | None): Final result payload once ``status != \"running\"``.\n    error (str | None): Error message if ``status == \"error\"``."
+      },
+      "LeaderboardStartResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id"
+        ],
+        "title": "LeaderboardStartResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/train/leaderboard/start``.\n\nArgs:\n    job_id (str): Poll ``GET /api/runs/{run_id}/jobs/{job_id}`` with this\n        id for live per-algorithm progress and the final ranked table\n        (``result`` shape: ``{\"rows\": [{\"algorithm\", \"status\", \"fit_time_s\",\n        \"roc_auc\", \"error\"}, ...], \"winner\": str | None}``)."
+      },
+      "LoadDataConfirmRequest": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "parquet",
+              "xlsx"
+            ],
+            "title": "Format"
+          },
+          "sheet_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet Name"
+          },
+          "duplicate_resolutions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Duplicate Resolutions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "format"
+        ],
+        "title": "LoadDataConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/1/confirm``.\n\nArgs:\n    duplicate_resolutions (dict[str, str]): Per-duplicate-occurrence choice\n        \u2014 ``{\"original_col_name__2\": \"rename:new_name\"}`` or\n        ``{\"original_col_name__2\": \"drop\"}``. Empty when\n        ``duplicate_columns`` was empty at preview time."
+      },
+      "LoadDataConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "n_rows": {
+            "type": "integer",
+            "title": "N Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "columns",
+          "n_rows"
+        ],
+        "title": "LoadDataConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/1/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success.\n    columns (list[str]): Final column names after duplicate resolution.\n    n_rows (int): Row count."
+      },
+      "LoadDataPreviewRequest": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "csv",
+              "parquet",
+              "xlsx"
+            ],
+            "title": "Format"
+          },
+          "sheet_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sheet Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "format"
+        ],
+        "title": "LoadDataPreviewRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/1/preview``.\n\nArgs:\n    path (str): Path to the dataset file (server-side path or an uploaded\n        file's staged location \u2014 upload transport is a separate concern).\n    format (str): One of ``\"csv\"``, ``\"parquet\"``, ``\"xlsx\"``.\n    sheet_name (str | None): XLSX sheet name. Ignored for other formats."
+      },
+      "LoadDataPreviewResponse": {
+        "properties": {
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "dtypes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Dtypes"
+          },
+          "n_rows": {
+            "type": "integer",
+            "title": "N Rows"
+          },
+          "duplicate_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Duplicate Columns"
+          },
+          "sample_rows": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Sample Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "columns",
+          "dtypes",
+          "n_rows",
+          "duplicate_columns",
+          "sample_rows"
+        ],
+        "title": "LoadDataPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/1/preview``.\n\nArgs:\n    columns (list[str]): Column names as loaded.\n    dtypes (dict[str, str]): Column name to pandas dtype string.\n    n_rows (int): Row count.\n    duplicate_columns (list[str]): Column names that appear more than once\n        in the raw file header \u2014 must be resolved before confirming.\n    sample_rows (list[dict[str, Any]]): The first ``api_settings.preview_sample_rows``\n        rows, JSON-safe (NaN/NaT become ``None``, Timestamps become ISO strings) \u2014\n        mirrors ``interactive_step1.py``'s ``st.dataframe(df.head(10))``."
+      },
+      "RunCreateResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id"
+        ],
+        "title": "RunCreateResponse",
+        "description": "Response for ``POST /api/runs``.\n\nArgs:\n    run_id (str): The newly created run's identifier \u2014 pass this in every\n        subsequent request's path."
+      },
+      "RunStateResponse": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "title": "Run Id"
+          },
+          "step_status": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "load_data",
+                "task_target",
+                "split",
+                "eda",
+                "feature_processing",
+                "feature_selection",
+                "imbalance",
+                "train",
+                "tuning",
+                "evaluate",
+                "calibration",
+                "shap",
+                "report"
+              ]
+            },
+            "type": "object",
+            "title": "Step Status"
+          },
+          "step_confirmed": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "propertyNames": {
+              "enum": [
+                "load_data",
+                "task_target",
+                "split",
+                "eda",
+                "feature_processing",
+                "feature_selection",
+                "imbalance",
+                "train",
+                "tuning",
+                "evaluate",
+                "calibration",
+                "shap",
+                "report"
+              ]
+            },
+            "type": "object",
+            "title": "Step Confirmed"
+          },
+          "audit_trail": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "load_data",
+                    "task_target",
+                    "split",
+                    "eda",
+                    "feature_processing",
+                    "feature_selection",
+                    "imbalance",
+                    "train",
+                    "tuning",
+                    "evaluate",
+                    "calibration",
+                    "shap",
+                    "report"
+                  ]
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "title": "Audit Trail"
+          },
+          "config_preview": {
+            "type": "object",
+            "title": "Config Preview"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run_id",
+          "step_status",
+          "step_confirmed",
+          "audit_trail",
+          "config_preview"
+        ],
+        "title": "RunStateResponse",
+        "description": "Response for ``GET /api/runs/{run_id}/state`` \u2014 the REST equivalent of\n``_interactive_flags()`` + ``_build_partial_config_dict()`` combined.\n\nArgs:\n    run_id (str): This run's identifier.\n    step_status (dict[StepId, str]): One of ``\"done\"``, ``\"current\"``,\n        ``\"pending\"``, ``\"flagged\"`` per step.\n    step_confirmed (dict[StepId, bool]): Whether each step has been\n        confirmed.\n    audit_trail (list[tuple[StepId, str]]): One plain-language entry per\n        confirmed step, in step order.\n    config_preview (dict[str, Any]): Flat dict keyed by step slug, containing\n        only the fields decided by confirmed steps so far \u2014 grows exactly in\n        step with confirmations, same philosophy as ``streamlit_app.py``'s\n        ``_build_partial_config_dict()``."
+      },
+      "ShapConfirmRequest": {
+        "properties": {
+          "shap_run": {
+            "type": "boolean",
+            "title": "Shap Run"
+          }
+        },
+        "type": "object",
+        "required": [
+          "shap_run"
+        ],
+        "title": "ShapConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/shap/confirm``.\n\nArgs:\n    shap_run (bool): Whether SHAP was actually computed (``True``) or\n        skipped by the user (``False``) \u2014 recorded in the audit trail."
+      },
+      "ShapConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed"
+        ],
+        "title": "ShapConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/shap/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success."
+      },
+      "ShapFeatureRow": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "feature": {
+            "type": "string",
+            "title": "Feature"
+          },
+          "mean_abs_shap": {
+            "type": "number",
+            "title": "Mean Abs Shap"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rank",
+          "feature",
+          "mean_abs_shap"
+        ],
+        "title": "ShapFeatureRow",
+        "description": "One row of Step 12's top-feature importance table.\n\nArgs:\n    rank (int): 1-based rank, most important feature first.\n    feature (str): Feature name.\n    mean_abs_shap (float): Mean absolute SHAP value across the sample."
+      },
+      "ShapPreviewResponse": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "title": "ShapPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/shap/preview``.\n\nArgs:\n    available (bool): Whether SHAP can be run for this run. Always\n        ``True`` today \u2014 exists as a forward-compatible kill switch."
+      },
+      "ShapRunResponse": {
+        "properties": {
+          "figure": {
+            "type": "object",
+            "title": "Figure"
+          },
+          "top_features": {
+            "items": {
+              "$ref": "#/components/schemas/ShapFeatureRow"
+            },
+            "type": "array",
+            "title": "Top Features"
+          },
+          "split_used": {
+            "type": "string",
+            "title": "Split Used"
+          },
+          "n_rows": {
+            "type": "integer",
+            "title": "N Rows"
+          }
+        },
+        "type": "object",
+        "required": [
+          "figure",
+          "top_features",
+          "split_used",
+          "n_rows"
+        ],
+        "title": "ShapRunResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/shap/run``.\n\nArgs:\n    figure (dict[str, Any]): SHAP summary bar chart, JSON-safe via\n        ``fig.to_json()``.\n    top_features (list[ShapFeatureRow]): Top 10 features by mean\n        absolute SHAP value.\n    split_used (str): Held-out split SHAP was computed on (``\"val\"`` if\n        available, else ``\"test\"``, else ``\"train\"``).\n    n_rows (int): Number of rows actually sampled for the computation\n        (capped at ``settings.shap_interactive_max_rows``)."
+      },
+      "SplitConfirmRequest": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "stratified",
+              "random",
+              "temporal",
+              "grouped"
+            ],
+            "title": "Method"
+          },
+          "test_size": {
+            "type": "number",
+            "title": "Test Size",
+            "default": 0.2
+          },
+          "val_size": {
+            "type": "number",
+            "title": "Val Size",
+            "default": 0.1
+          },
+          "date_col": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Col"
+          },
+          "group_col": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Col"
+          },
+          "oot_cutoff": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oot Cutoff"
+          }
+        },
+        "type": "object",
+        "required": [
+          "method"
+        ],
+        "title": "SplitConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/3/confirm`` \u2014 identical\nshape to the preview request; confirming re-runs the split before\npersisting (the split itself is cheap, unlike Steps 8/9)."
+      },
+      "SplitConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          },
+          "row_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Row Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "row_counts"
+        ],
+        "title": "SplitConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/3/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success.\n    row_counts (dict[str, int]): Row count per split partition."
+      },
+      "SplitPreviewRequest": {
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "stratified",
+              "random",
+              "temporal",
+              "grouped"
+            ],
+            "title": "Method"
+          },
+          "test_size": {
+            "type": "number",
+            "title": "Test Size",
+            "default": 0.2
+          },
+          "val_size": {
+            "type": "number",
+            "title": "Val Size",
+            "default": 0.1
+          },
+          "date_col": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Col"
+          },
+          "group_col": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Col"
+          },
+          "oot_cutoff": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oot Cutoff"
+          }
+        },
+        "type": "object",
+        "required": [
+          "method"
+        ],
+        "title": "SplitPreviewRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/3/preview``.\n\nArgs:\n    method (str): One of ``\"stratified\"``, ``\"random\"``, ``\"temporal\"``,\n        ``\"grouped\"``.\n    test_size (float): Fraction reserved for the test set.\n    val_size (float): Fraction of the training portion reserved for\n        validation.\n    date_col (str | None): Required when ``method=\"temporal\"``.\n    group_col (str | None): Required when ``method=\"grouped\"``.\n    oot_cutoff (str | None): ISO date string \u2014 required when\n        ``method=\"temporal\"``."
+      },
+      "SplitPreviewResponse": {
+        "properties": {
+          "row_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Row Counts"
+          },
+          "event_rates": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Event Rates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "row_counts",
+          "event_rates"
+        ],
+        "title": "SplitPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/3/preview``.\n\nArgs:\n    row_counts (dict[str, int]): Row count per split partition (``train``,\n        ``val``, ``test``, ``oot``).\n    event_rates (dict[str, float]): Target event rate per partition, for\n        classification tasks \u2014 lets the user sanity-check the split before\n        applying it."
+      },
+      "TaskTargetConfirmRequest": {
+        "properties": {
+          "task": {
+            "type": "string",
+            "const": "classification",
+            "title": "Task"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "identifier_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Identifier Columns"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task",
+          "target"
+        ],
+        "title": "TaskTargetConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/2/confirm`` \u2014 identical\nshape to the preview request; confirming re-validates before persisting."
+      },
+      "TaskTargetConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          },
+          "task": {
+            "type": "string",
+            "title": "Task"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "task",
+          "target"
+        ],
+        "title": "TaskTargetConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/2/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success.\n    task (str): The confirmed task.\n    target (str): The confirmed target column."
+      },
+      "TaskTargetPreviewRequest": {
+        "properties": {
+          "task": {
+            "type": "string",
+            "const": "classification",
+            "title": "Task"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target"
+          },
+          "identifier_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Identifier Columns"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task",
+          "target"
+        ],
+        "title": "TaskTargetPreviewRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/2/preview``.\n\nArgs:\n    task (str): Currently only ``\"classification\"`` is supported (mirrors\n        ``interactive_step2.py``'s current restriction).\n    target (str): Target column name \u2014 must be present in Step 1's columns.\n    identifier_columns (list[str]): Columns to exclude as features (IDs,\n        not real signal)."
+      },
+      "TaskTargetPreviewResponse": {
+        "properties": {
+          "valid": {
+            "type": "boolean",
+            "title": "Valid"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Errors"
+          },
+          "target_value_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Target Value Counts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "valid",
+          "errors",
+          "target_value_counts"
+        ],
+        "title": "TaskTargetPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/2/preview``.\n\nArgs:\n    valid (bool): Whether the target passes dscompanion's validation (present,\n        no missing values, strictly binary {0, 1}, no degenerate minority\n        class).\n    errors (list[str]): Validation failure messages. Empty when\n        ``valid=True``.\n    target_value_counts (dict[str, int]): Class counts for the chosen\n        target, for display."
+      },
+      "TrainAlgorithmOption": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "note"
+        ],
+        "title": "TrainAlgorithmOption",
+        "description": "One selectable algorithm for Step 8's picker.\n\nArgs:\n    name (str): Algorithm key (e.g. ``\"xgboost\"``), as accepted by\n        ``ModelFactory.build()``.\n    note (str): Plain-language one-liner shown next to it."
+      },
+      "TrainConfirmRequest": {
+        "properties": {
+          "algorithm": {
+            "type": "string",
+            "title": "Algorithm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "algorithm"
+        ],
+        "title": "TrainConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/train/confirm``.\n\nArgs:\n    algorithm (str): The algorithm to train and confirm (single-algorithm\n        path), or the leaderboard winner's name (leaderboard path \u2014 the\n        already-trained winner is read from ``run.artifacts`` rather than\n        retrained)."
+      },
+      "TrainConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          },
+          "algorithm": {
+            "type": "string",
+            "title": "Algorithm"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/TrainMetricRow"
+            },
+            "type": "array",
+            "title": "Metrics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "algorithm",
+          "metrics"
+        ],
+        "title": "TrainConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/train/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success.\n    algorithm (str): The confirmed algorithm.\n    metrics (list[TrainMetricRow]): Brief per-split metric summary."
+      },
+      "TrainMetricRow": {
+        "properties": {
+          "split": {
+            "type": "string",
+            "title": "Split"
+          },
+          "auc_roc": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auc Roc"
+          },
+          "gini": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gini"
+          },
+          "ks_statistic": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ks Statistic"
+          }
+        },
+        "type": "object",
+        "required": [
+          "split"
+        ],
+        "title": "TrainMetricRow",
+        "description": "One row of Step 8's brief AUC/Gini/KS summary table.\n\nArgs:\n    split (str): One of ``\"train\"``, ``\"val\"``, ``\"test\"``, ``\"oot\"``.\n    auc_roc (float | None): AUC-ROC, ``None`` if unavailable for this split.\n    gini (float | None): Gini coefficient, ``None`` if unavailable.\n    ks_statistic (float | None): KS statistic, ``None`` if unavailable."
+      },
+      "TrainPreviewResponse": {
+        "properties": {
+          "algorithms": {
+            "items": {
+              "$ref": "#/components/schemas/TrainAlgorithmOption"
+            },
+            "type": "array",
+            "title": "Algorithms"
+          },
+          "leaderboard_algorithms": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Leaderboard Algorithms"
+          },
+          "n_features": {
+            "type": "integer",
+            "title": "N Features"
+          }
+        },
+        "type": "object",
+        "required": [
+          "algorithms",
+          "leaderboard_algorithms",
+          "n_features"
+        ],
+        "title": "TrainPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/train/preview``.\n\nArgs:\n    algorithms (list[TrainAlgorithmOption]): Every algorithm available for\n        the single-algorithm path (task-appropriate).\n    leaderboard_algorithms (list[str]): Subset of ``algorithms`` used for\n        the leaderboard comparison \u2014 excludes ``\"svm\"`` (too slow for an\n        automated multi-algorithm run).\n    n_features (int): Feature-column count after Steps 2/3/5/6 exclusions,\n        before any transform runs."
+      },
+      "TransformStep": {
+        "properties": {
+          "transformer": {
+            "type": "string",
+            "title": "Transformer"
+          },
+          "params": {
+            "type": "object",
+            "title": "Params"
+          }
+        },
+        "type": "object",
+        "required": [
+          "transformer"
+        ],
+        "title": "TransformStep",
+        "description": "One named transformation step within a ``ColumnRecipe``.\n\nArgs:\n    transformer (str): Registry key identifying which dscompanion transformer\n        class to instantiate \u2014 see\n        ``dscompanion.features.registry.registered_transformer_names()`` for\n        the full list of valid values (e.g. ``\"log\"``, ``\"clip_lower\"``,\n        ``\"bucket_quantile\"``).\n    params (dict[str, Any]): Keyword arguments forwarded to the\n        transformer's constructor, overriding its defaults. Defaults to\n        an empty dict (use the transformer's own default parameters).\n\nRaises:\n    ValueError: If ``transformer`` is not a registered name."
+      },
+      "TransformerRegistryResponse": {
+        "properties": {
+          "names": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Names"
+          }
+        },
+        "type": "object",
+        "required": [
+          "names"
+        ],
+        "title": "TransformerRegistryResponse",
+        "description": "Response for ``GET /api/transformer-registry`` \u2014 the menu Step 5's recipe editor\nbuilds its \"add step\" control from.\n\nArgs:\n    names (list[str]): Every registered transformer key (e.g. ``\"log\"``,\n        ``\"clip_lower\"``, ``\"onehot_encode\"``) \u2014 valid values for\n        ``TransformStep.transformer``."
+      },
+      "TuningConfirmRequest": {
+        "properties": {
+          "use_tuned": {
+            "type": "boolean",
+            "title": "Use Tuned"
+          }
+        },
+        "type": "object",
+        "required": [
+          "use_tuned"
+        ],
+        "title": "TuningConfirmRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/tuning/confirm``.\n\nArgs:\n    use_tuned (bool): ``True`` to carry the tuned model forward, ``False``\n        to keep Step 8's model unchanged \u2014 covers the skip-toggle,\n        auto-skip, and reject-tuned-parameters paths alike, all three\n        confirm with ``use_tuned=False``."
+      },
+      "TuningConfirmResponse": {
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "title": "Confirmed"
+          },
+          "tuned": {
+            "type": "boolean",
+            "title": "Tuned"
+          },
+          "best_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmed",
+          "tuned"
+        ],
+        "title": "TuningConfirmResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/tuning/confirm``.\n\nArgs:\n    confirmed (bool): Always ``True`` on success.\n    tuned (bool): Whether the tuned model was accepted.\n    best_score (float | None): Best AUC found by tuning, if applicable."
+      },
+      "TuningPreviewResponse": {
+        "properties": {
+          "algorithm": {
+            "type": "string",
+            "title": "Algorithm"
+          },
+          "available": {
+            "type": "boolean",
+            "title": "Available"
+          },
+          "default_n_trials": {
+            "type": "integer",
+            "title": "Default N Trials"
+          },
+          "min_n_trials": {
+            "type": "integer",
+            "title": "Min N Trials"
+          },
+          "max_n_trials": {
+            "type": "integer",
+            "title": "Max N Trials"
+          }
+        },
+        "type": "object",
+        "required": [
+          "algorithm",
+          "available",
+          "default_n_trials",
+          "min_n_trials",
+          "max_n_trials"
+        ],
+        "title": "TuningPreviewResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/tuning/preview``.\n\nArgs:\n    algorithm (str): The algorithm confirmed at Step 8.\n    available (bool): ``False`` when ``algorithm`` has no Optuna search\n        space (``gradient_boosting``/``lightgbm``) \u2014 the frontend should\n        auto-skip straight to confirming with ``use_tuned=False``,\n        matching Streamlit's silent auto-skip rather than offering a\n        \"Start Tuning\" control that would only fail.\n    default_n_trials (int): Suggested starting value for the trials slider.\n    min_n_trials (int): Slider minimum.\n    max_n_trials (int): Slider maximum."
+      },
+      "TuningStartRequest": {
+        "properties": {
+          "n_trials": {
+            "type": "integer",
+            "title": "N Trials"
+          }
+        },
+        "type": "object",
+        "required": [
+          "n_trials"
+        ],
+        "title": "TuningStartRequest",
+        "description": "Request for ``POST /api/runs/{run_id}/steps/tuning/tune/start``.\n\nArgs:\n    n_trials (int): Number of Optuna trials to run."
+      },
+      "TuningStartResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id"
+        ],
+        "title": "TuningStartResponse",
+        "description": "Response for ``POST /api/runs/{run_id}/steps/tuning/tune/start``.\n\nArgs:\n    job_id (str): Poll ``GET /api/runs/{run_id}/jobs/{job_id}`` with this\n        id \u2014 ``result`` holds the full comparison payload once done:\n        ``{\"best_score\": float | None, \"baseline_auc\": float | None,\n        \"params_comparison\": [{\"parameter\", \"default\", \"tuned\", \"changed\"},\n        ...], \"trials\": [{\"trial_number\", \"metric_value\"}, ...],\n        \"optimization_curve\": <Plotly figure JSON | None>}``. ``baseline_auc``\n        is Step 8's untuned model re-evaluated fresh (val split, falling back\n        to test), for the before/after comparison."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

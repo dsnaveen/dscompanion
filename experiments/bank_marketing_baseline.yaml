@@ -1,0 +1,87 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Bank Marketing Baseline — YAML-driven equivalent of
+# dscompanion/notebooks/02_bank_marketing_end_to_end.ipynb
+# ─────────────────────────────────────────────────────────────────────────────
+# Only fields recognised by dscompanion.pipeline.config.PipelineConfig are listed
+# here (PipelineConfig uses extra="forbid" at every level — unlike
+# experiment_template.yaml, this file is a valid, loadable experiment config).
+#
+# Run with:
+#   from dscompanion.pipeline.runner import PipelineRunner
+#   result = PipelineRunner.from_yaml("dscompanion/experiments/bank_marketing_baseline.yaml").run()
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: bank_marketing_baseline
+version: "1.0"
+description: "UCI Bank Marketing — term deposit subscription, XGBoost baseline (notebook 02 parity)"
+owner: "scientist_name"
+
+# ── Data ─────────────────────────────────────────────────────────────────────
+data:
+  # bank_marketing.parquet stores the raw UCI target as strings ("yes"/"no").
+  # The notebook binarizes it in-memory after loading; PipelineRunner has no
+  # equivalent for string targets (only numeric target.binarize_threshold),
+  # so this points at a pre-cleaned copy with subscribed as 0/1 int.
+  path: ../data/bank_marketing_clean.parquet   # relative to dscompanion/ (run PipelineRunner from inside dscompanion/, not the repo root — see README)
+  format: parquet
+  target: subscribed
+
+# ── Split ─────────────────────────────────────────────────────────────────────
+split:
+  method: stratified
+  test_size: 0.20
+  val_size: 0.10
+
+# ── EDA ───────────────────────────────────────────────────────────────────────
+eda:
+  enabled: true
+  univariate: true
+  bivariate: true
+  multivariate: false
+
+# ── Feature Engineering ───────────────────────────────────────────────────────
+features:
+  encoder:
+    strategy: target          # maps to WoE encoding in FeatureProcessingPipeline (matches notebook's encoder='woe')
+  scaler:
+    strategy: robust          # matches notebook's scaler='robust'
+
+# ── Target Treatment ──────────────────────────────────────────────────────────
+# Imbalance is handled via model.params.scale_pos_weight below (xgboost has no
+# sklearn class_weight support), so the built-in ImbalanceHandler is left off.
+target:
+  imbalance:
+    strategy: none
+
+# ── Feature Selection ─────────────────────────────────────────────────────────
+# Defaults match the notebook's FeatureSelectionPipeline() (constant, cardinality,
+# correlation, IV — leakage_check always runs and will flag `duration`).
+selection: {}
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+model:
+  task: classification
+  algorithm: xgboost
+  params:
+    n_estimators: 300
+    max_depth: 4
+    learning_rate: 0.05
+    scale_pos_weight: 7        # int((1 - event_rate) / event_rate) computed from data/bank_marketing.parquet (event rate ~11.7%)
+    early_stopping_rounds: null  # ModelFactory defaults xgboost classification to early_stopping_rounds=20,
+                                  # but PipelineRunner._train_model() never passes eval_set to .fit() — disable
+                                  # here to avoid "Must have at least 1 validation dataset" crash.
+
+# ── Tuning ────────────────────────────────────────────────────────────────────
+tuning:
+  enabled: false
+
+# ── Explainability ────────────────────────────────────────────────────────────
+explain:
+  shap_enabled: true
+  shap_top_n: 20
+
+# ── Reporting ─────────────────────────────────────────────────────────────────
+reporting:
+  output_dir: ./reports
+  html_report: false
+  decile_table: true
