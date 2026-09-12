@@ -54,10 +54,13 @@ docs = ["sphinx>=9.0", "furo>=2025.0", "sphinx-autodoc-typehints>=3.0", "myst-pa
 # Local-dev UI only — drives PipelineRunner from a browser on a dev machine against
 # local data. app/ is never imported by dscompanion's runtime code, so this
 # extra is optional even for full local development.
-app = ["streamlit>=1.37", "openpyxl>=3.1"]
+app = ["streamlit==1.59.1", "openpyxl>=3.1"]
 # Optional FastAPI service exposing PipelineRunner over HTTP, for a web-based
 # frontend. Not required for using dscompanion as a library.
 api = ["fastapi==0.117.1", "uvicorn==0.37.0"]
+# Optional gradient-boosting backend for ModelFactory's "lightgbm" algorithm choice —
+# not required unless that specific algorithm is selected.
+models = ["lightgbm==4.6.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
