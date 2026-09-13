@@ -604,14 +604,12 @@ def render_sample_section(eda_report: Any) -> str:
             "<tr>" + "".join(f"<td>{_html_lib.escape(str(v))}</td>" for v in row) + "</tr>"
             for row in combined.itertuples(index=False)
         )
-        parts.append(
-            f"""
+        parts.append(f"""
         <p class="h5 item-header">Sample rows (head + tail)</p>
         <div class="table-responsive">
           <table class="table table-striped table-sm"><thead><tr>{hdr}</tr></thead>
           <tbody>{body}</tbody></table>
-        </div>"""
-        )
+        </div>""")
     if not duplicate_df.empty:
         cols = list(duplicate_df.columns)
         hdr = "".join(f"<th>{_html_lib.escape(c)}</th>" for c in cols)
@@ -619,12 +617,10 @@ def render_sample_section(eda_report: Any) -> str:
             "<tr>" + "".join(f"<td>{_html_lib.escape(str(v))}</td>" for v in row) + "</tr>"
             for row in duplicate_df.itertuples(index=False)
         )
-        parts.append(
-            f"""
+        parts.append(f"""
         <p class="h5 item-header mt-3">Duplicate rows</p>
         <div class="table-responsive">
           <table class="table table-striped table-sm"><thead><tr>{hdr}</tr></thead>
           <tbody>{body}</tbody></table>
-        </div>"""
-        )
+        </div>""")
     return "".join(parts)

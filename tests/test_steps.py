@@ -1,5 +1,4 @@
-"""Tests for dscompanion/api/steps.py — the step-identity/step-position source of truth.
-"""
+"""Tests for dscompanion/api/steps.py — the step-identity/step-position source of truth."""
 
 from __future__ import annotations
 
