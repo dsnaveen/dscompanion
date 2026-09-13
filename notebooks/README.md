@@ -15,10 +15,18 @@ This installs `dscompanion` itself plus `ucimlrepo` (the official UCI fetch clie
 `jupyter`, and `ipykernel`. You'll also need internet access — every notebook pulls its
 dataset live from UCI's servers on first run.
 
+New to conda/Python environments, or want a clean, dedicated environment for this
+before installing anything? Start with
+[`00_environment_setup.ipynb`](00_environment_setup.ipynb) — it walks through
+installing Miniconda, creating a `dscompanion` conda environment, and registering it
+as a Jupyter kernel. If you already have a working Python 3.12+ environment you're
+happy to install into directly, skip straight to `01`.
+
 ## Which notebook to start with
 
 | Notebook | Dataset | Task | What it teaches beyond the others |
 |---|---|---|---|
+| [`00_environment_setup.ipynb`](00_environment_setup.ipynb) | — | — | Setting up a dedicated conda/Miniconda environment from scratch — optional if you already have a suitable Python 3.12+ environment |
 | [`01_getting_started.ipynb`](01_getting_started.ipynb) | Bank Marketing | Classification | The fastest path to a working `PipelineRunner.run()` — minimal config, minimal explanation, just to see it work |
 | [`02_classification_bank_marketing.ipynb`](02_classification_bank_marketing.ipynb) | Bank Marketing | Classification | The deepest tour: EDA reports, splitting strategy, the leaderboard (multi-algorithm comparison), hyperparameter tuning, SHAP + permutation importance, and exporting a governance-ready model card |
 | [`03_regression_wine_quality.ipynb`](03_regression_wine_quality.ipynb) | Wine Quality | Regression | Regression-specific evaluation metrics, and why some features (like the leaderboard) that classification gets aren't available for every task |
