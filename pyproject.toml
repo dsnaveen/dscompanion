@@ -65,6 +65,9 @@ api = ["fastapi==0.117.1", "uvicorn==0.37.0"]
 # Optional gradient-boosting backend for ModelFactory's "lightgbm" algorithm choice —
 # not required unless that specific algorithm is selected.
 models = ["lightgbm==4.6.0"]
+# Tooling for notebooks/ — the learning/tutorial notebooks, never imported by
+# dscompanion's runtime code.
+notebooks = ["ucimlrepo>=0.0.7", "jupyter>=1.0", "ipykernel>=6.29"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

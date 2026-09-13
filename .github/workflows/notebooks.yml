@@ -1,0 +1,20 @@
+name: Notebooks
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[notebooks]"
+      - name: Execute notebooks
+        run: |
+          for nb in notebooks/*.ipynb; do
+            jupyter nbconvert --to notebook --execute --inplace "$nb"
+          done

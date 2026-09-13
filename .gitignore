@@ -63,6 +63,9 @@ logs/
 *.so
 *.c
 
+# Datasets fetched live from UCI by notebooks/ — never committed, refetched on demand
+notebooks/.data_cache/
+
 # --- domain-ml-private siblings (never part of the public dscompanion repo) ---
 data/
 frontend/
