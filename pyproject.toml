@@ -19,6 +19,9 @@ classifiers = [
 ]
 dependencies = [
     "pandas>=2.2,<3",          # pandas 2.x — does not default to Copy-on-Write
+    "pyarrow>=14.0",           # parquet is DataConfig's default format — pandas needs an
+                               # engine (pyarrow or fastparquet) for read_parquet/to_parquet,
+                               # neither of which ships with pandas itself
     "numpy>=2.1,<2.4",         # upper-bounded for numba (a shap dependency) compatibility
     "scikit-learn>=1.7,<2",
     "scipy>=1.16,<2",
