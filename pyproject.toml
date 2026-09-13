@@ -7,6 +7,7 @@ name = "dscompanion"
 version = "0.1.0"
 description = "A production-grade ML pipeline toolkit: EDA, feature engineering, model training/tuning/calibration, and governance-ready model cards."
 readme = "README.md"
+authors = [{ name = "dsnaveen", email = "mailtonaveenmittal@gmail.com" }]
 license = { text = "MIT" }
 requires-python = ">=3.12"
 classifiers = [
@@ -17,28 +18,28 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "pandas==2.3.3",           # pandas 2.x — does not default to Copy-on-Write
-    "numpy==2.3.5",            # pinned for numba 0.62.1 compatibility
-    "scikit-learn==1.9.0",
-    "scipy==1.18.1",
-    "statsmodels==0.14.6",
-    "joblib==1.5.3",
-    "plotly==5.24.1",
-    "jinja2==3.1.5",
-    "pyyaml==6.0.2",
-    "pydantic==2.10.6",        # v2 native — BaseSettings lives in pydantic-settings
-    "pydantic-settings==2.15.0",
-    "matplotlib==3.11.1",
-    "seaborn==0.13.2",
-    "xgboost==3.0.0",          # macOS dev requires Homebrew libomp (conda-forge llvm-openmp)
-    "optuna==3.6.1",
-    "shap==0.47.1",            # pre-0.52 API — shap_explainer.py returns list-of-arrays branch;
+    "pandas>=2.2,<3",          # pandas 2.x — does not default to Copy-on-Write
+    "numpy>=2.1,<2.4",         # upper-bounded for numba (a shap dependency) compatibility
+    "scikit-learn>=1.7,<2",
+    "scipy>=1.16,<2",
+    "statsmodels>=0.14,<0.15",
+    "joblib>=1.4,<2",
+    "plotly>=5.20,<6",
+    "jinja2>=3.1,<4",
+    "pyyaml>=6.0,<7",
+    "pydantic>=2.9,<3",        # v2 native — BaseSettings lives in pydantic-settings
+    "pydantic-settings>=2.10,<3",
+    "matplotlib>=3.9,<4",
+    "seaborn>=0.13,<0.14",
+    "xgboost>=3.0,<4",         # macOS dev requires Homebrew libomp (conda-forge llvm-openmp)
+    "optuna>=3.6,<4",
+    "shap>=0.44,<0.52",        # pre-0.52 API — shap_explainer.py returns list-of-arrays branch;
                                # shap 0.52.0+ returns a 3-D ndarray instead
     # imbalanced-learn is intentionally not a dependency — ImbalanceHandler's smote/undersample
     # strategies are implemented from scratch on scikit-learn's NearestNeighbors alone, since
     # imbalanced-learn has a history of version conflicts with recent scikit-learn releases.
-    "python-docx==1.2.0",
-    "xlsxwriter==3.2.9",       # engine for ModelCard.to_excel()
+    "python-docx>=1.1,<2",
+    "xlsxwriter>=3.2,<4",      # engine for ModelCard.to_excel()
 ]
 
 [project.urls]
