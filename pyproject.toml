@@ -106,6 +106,10 @@ ignore = [
 "tests/manual_verify_interactive_flow.py" = ["T201"]
 "tests/manual_verify_leaderboard_tuning.py" = ["T201"]
 "tests/manual_verify_environment.py" = ["T201"]
+# Tutorial notebooks: print()/bare-expression output is the normal, intended way to
+# show results to a reader, and imports are deliberately placed right before their
+# first use per section rather than all at the top of the file.
+"notebooks/*.ipynb" = ["T201", "I001"]
 
 [tool.mypy]
 # Placeholder — strict type-checking disabled for now; enable incrementally
