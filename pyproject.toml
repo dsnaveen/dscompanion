@@ -27,7 +27,10 @@ dependencies = [
     "plotly>=5.20,<6",
     "jinja2>=3.1,<4",
     "pyyaml>=6.0,<7",
-    "pydantic>=2.9,<3",        # v2 native — BaseSettings lives in pydantic-settings
+    "pydantic>=2.10,<2.11",    # v2 native — BaseSettings lives in pydantic-settings.
+                               # Narrowly bounded (not just <3): pydantic's generated JSON
+                               # schema shape has changed across minor versions before, and
+                               # api/openapi.json is committed and snapshot-tested against it.
     "pydantic-settings>=2.10,<3",
     "matplotlib>=3.9,<4",
     "seaborn>=0.13,<0.14",
