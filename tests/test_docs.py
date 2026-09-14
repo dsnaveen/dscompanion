@@ -123,6 +123,29 @@ class TestModelCard:
         for key in _SECTION_KEYS:
             assert key in d, f"Missing section key: {key}"
 
+    def test_to_json_writes_file_matching_to_dict(self, fitted_model, tmp_path):
+        import json
+
+        model, split = fitted_model
+        card = ModelCard(model=model, split=split)
+        card.generate()
+        out = card.to_json(tmp_path / "model_card.json")
+        assert out.exists()
+        with open(out, encoding="utf-8") as f:
+            file_content = f.read()
+        # Compare serialized strings, not loaded objects — some sections (e.g.
+        # a PSI value on the first split) legitimately contain NaN, and
+        # float('nan') != float('nan') would make an object-level == fail
+        # even when the content genuinely matches.
+        assert file_content == json.dumps(card.to_dict(), indent=2)
+
+    def test_to_json_creates_parent_directories(self, fitted_model, tmp_path):
+        model, split = fitted_model
+        card = ModelCard(model=model, split=split)
+        card.generate()
+        out = card.to_json(tmp_path / "nested" / "dir" / "model_card.json")
+        assert out.exists()
+
     @pytest.mark.skipif(not _docx_available(), reason="python-docx not installed")
     def test_to_word_creates_file_above_1kb(self, fitted_model, tmp_path):
         model, split = fitted_model
@@ -792,7 +815,7 @@ class TestModelCard:
         # A dict repr in the page would look like "{'pandas':" — must not appear.
         assert "{'pandas'" not in content
 
-    def test_to_tracking_artifact_logs_excel_and_html(self, fitted_model, monkeypatch):
+    def test_to_tracking_artifact_logs_excel_html_and_json(self, fitted_model, monkeypatch):
         model, split = fitted_model
         card = ModelCard(model=model, split=split)
         card.generate()
@@ -807,6 +830,7 @@ class TestModelCard:
 
         assert any(p.endswith(".xlsx") for p in logged_paths)
         assert any(p.endswith(".html") for p in logged_paths)
+        assert any(p.endswith(".json") for p in logged_paths)
 
 
 def test_numeric_histogram_data_delegates_to_shared_widget(fitted_model):

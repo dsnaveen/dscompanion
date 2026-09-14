@@ -52,7 +52,8 @@ class PipelineRunResult:
             top-ranked candidate (``leaderboard.best_model()``) and
             ``config.model.algorithm`` has been updated in place to match.
         model_card: Generated ``ModelCard`` instance — ``model_card.to_excel(...)``
-            / ``.to_html(...)`` / ``.to_word(...)`` write the report to disk on demand.
+            / ``.to_html(...)`` / ``.to_word(...)`` / ``.to_json(...)`` write the report
+            to disk on demand.
         run_id (str | None): Local tracking run ID, or ``None`` when
             tracking is unavailable.
         run_dir (Path | None): ``<reporting.output_dir>/<run_id>/`` — the
@@ -72,7 +73,8 @@ class PipelineRunResult:
             run succeeded.
         report_path (Path | None): Path to the written HTML model report, or
             ``None`` when ``reporting.html_report=False`` (the default) —
-            ``model_card.to_excel(...)``/``.to_html(...)`` remain available either way.
+            ``model_card.to_excel(...)``/``.to_html(...)``/``.to_json(...)`` remain
+            available either way.
         excel_report_path (Path | None): ``<run_dir>/reports/<name>_v<version>_model_card.xlsx``
             — the Excel model card, saved automatically (unlike
             ``report_path``, this is unconditional, not gated behind a

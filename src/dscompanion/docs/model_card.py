@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import html as _html_lib
+import json
 import logging
 import sys
 from datetime import datetime
@@ -1735,13 +1736,13 @@ div[class*="col-"] + div[class*="col-"] {{ padding-left: 1rem !important; }}
         worksheet.insert_chart(f"{anchor_col_letter}{start_row + 2}", column_chart)
 
     def to_tracking_artifact(self, run_id: str | None = None) -> None:
-        """Export the model card to Excel and HTML (always), and Word
+        """Export the model card to Excel, HTML, and JSON (always), and Word
         (best-effort), then upload all produced files to the active
         tracking run under the ``model_card/`` subdirectory.
 
         Writes files to a temporary directory which is cleaned up
         automatically after upload. The Word export failure is caught and
-        logged at DEBUG level; Excel and HTML are always uploaded.
+        logged at DEBUG level; Excel, HTML, and JSON are always uploaded.
 
         Must be called after ``generate()``.
 
@@ -1763,12 +1764,14 @@ div[class*="col-"] + div[class*="col-"] {{ padding-left: 1rem !important; }}
         with tempfile.TemporaryDirectory() as tmpdir:
             excel_path = self.to_excel(_P(tmpdir) / "model_card.xlsx")
             html_path = self.to_html(_P(tmpdir) / "model_card.html")
+            json_path = self.to_json(_P(tmpdir) / "model_card.json")
             try:
                 word_path = self.to_word(_P(tmpdir) / "model_card.docx")
                 log_artifact(str(word_path), artifact_path="model_card")
             except Exception as exc:
                 logger.debug("Word export skipped: %s", exc)
             log_artifact(str(excel_path), artifact_path="model_card")
+            log_artifact(str(json_path), artifact_path="model_card")
             log_artifact(str(html_path), artifact_path="model_card")
 
     def to_dict(self) -> dict[str, Any]:
@@ -1799,6 +1802,30 @@ div[class*="col-"] + div[class*="col-"] {{ padding-left: 1rem !important; }}
             else:
                 result[key] = data
         return result
+
+    def to_json(self, path: str | Path) -> Path:
+        """Write ``to_dict()``'s output to a ``.json`` file.
+
+        Must be called after ``generate()``. Creates any missing parent
+        directories automatically. Useful for feeding a model card into
+        another system programmatically (a dashboard, a governance
+        database, a CI check asserting on a specific metric) without
+        parsing Excel or HTML.
+
+        Args:
+            path (str or Path): Destination ``.json`` path. Parent
+                directories are created with ``mkdir(parents=True)`` if
+                they do not already exist.
+
+        Returns:
+            pathlib.Path: The resolved ``Path`` of the written JSON file.
+        """
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.to_dict(), f, indent=2)
+        logger.info("ModelCard (json) → %s", path)
+        return path
 
     def _config_summary_section(self) -> pd.DataFrame:
         """Build the full config-parameter table shown at the top of the report.
