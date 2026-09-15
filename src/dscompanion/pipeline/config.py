@@ -149,6 +149,14 @@ class SplitConfig(BaseModel):
     requires ``data.date_column`` to be set.  ``grouped`` requires
     ``group_column`` to be set here.
 
+    ``temporal`` expects ``data.date_column`` to hold a small number of
+    discrete snapshot values (e.g. monthly/quarterly periods), not a
+    per-row continuous timestamp.  With 2-4 distinct values, the newest is
+    always OOT and the rest are assigned automatically (see
+    ``dscompanion.split.DataSplitter._temporal_split`` for the exact table).
+    With 5+ distinct values, or to override the automatic assignment for
+    2-4 values, set ``date_value_roles`` explicitly.
+
     Args:
         method (str): Splitting strategy.  One of ``"stratified"`` (default),
             ``"random"``, ``"temporal"``, ``"grouped"``.
@@ -158,6 +166,13 @@ class SplitConfig(BaseModel):
             validation.  Must be in ``(0, 1)``.  Defaults to ``0.1``.
         group_column (str | None): Column name used as the group key when
             ``method="grouped"``.  Ignored for all other methods.
+        date_value_roles (dict[str, list[str]] | None): Explicit mapping of
+            ``data.date_column`` values to roles — keys must be a subset of
+            ``{"train", "val", "test", "oot"}``, values are the list of
+            ``date_column`` values assigned to that role. Only used when
+            ``method="temporal"``. When unset, ``temporal`` uses the
+            automatic 2-4-distinct-value assignment instead. Required when
+            ``date_column`` has 5 or more distinct values.
 
     Returns:
         SplitConfig: Validated split specification.
@@ -169,6 +184,7 @@ class SplitConfig(BaseModel):
     test_size: float = 0.2
     val_size: float = 0.1
     group_column: str | None = None
+    date_value_roles: dict[str, list[str]] | None = None
 
     @field_validator("method")
     @classmethod
@@ -183,6 +199,34 @@ class SplitConfig(BaseModel):
     def valid_fraction(cls, v: float) -> float:
         if not 0.0 < v < 1.0:
             raise ValueError(f"Must be in (0, 1), got {v}")
+        return v
+
+    @field_validator("date_value_roles")
+    @classmethod
+    def valid_date_value_roles(cls, v: dict[str, list[str]] | None) -> dict[str, list[str]] | None:
+        if v is None:
+            return v
+        allowed_roles = {"train", "val", "test", "oot"}
+        unknown_roles = set(v) - allowed_roles
+        if unknown_roles:
+            raise ValueError(
+                f"date_value_roles has unknown role(s) {sorted(unknown_roles)} — "
+                f"must be a subset of {sorted(allowed_roles)}"
+            )
+        empty_roles = [role for role, values in v.items() if not values]
+        if empty_roles:
+            raise ValueError(f"date_value_roles role(s) {sorted(empty_roles)} have no values")
+        if not v.get("oot"):
+            raise ValueError("date_value_roles must include a non-empty 'oot' role")
+        seen: dict[str, str] = {}
+        for role, values in v.items():
+            for value in values:
+                if value in seen:
+                    raise ValueError(
+                        f"date_value_roles assigns {value!r} to both "
+                        f"{seen[value]!r} and {role!r}"
+                    )
+                seen[value] = role
         return v
 
 
@@ -1093,6 +1137,17 @@ class PipelineConfig(BaseModel):
                     raise ValueError(
                         f"leaderboard.{field_name} has unknown algorithm(s): {sorted(unknown)}"
                     )
+        return self
+
+    @model_validator(mode="after")
+    def validate_split_compatibility(self) -> "PipelineConfig":
+        if self.split.date_value_roles is not None and self.split.method != "temporal":
+            raise ValueError(
+                "split.date_value_roles is only used when split.method='temporal', "
+                f"got method={self.split.method!r}"
+            )
+        if self.split.method == "temporal" and not self.data.date_column:
+            raise ValueError("split.method='temporal' requires data.date_column to be set.")
         return self
 
     @classmethod

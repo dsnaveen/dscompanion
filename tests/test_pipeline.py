@@ -253,13 +253,41 @@ class TestExplainConfigValidation:
 # ---------------------------------------------------------------------------
 
 
-class TestPreflight:
+class TestSplitConfigValidation:
     def test_temporal_without_date_column_raises(self):
-        cfg = _minimal_config(split=SplitConfig(method="temporal"))
-        runner = PipelineRunner(cfg)
-        with pytest.raises(ValueError, match="split.method='temporal' requires data.date_column"):
-            runner._preflight()
+        with pytest.raises(ValidationError, match="requires data.date_column"):
+            _minimal_config(split=SplitConfig(method="temporal"))
 
+    def test_temporal_with_date_column_constructs(self):
+        cfg = _minimal_config(
+            data=DataConfig(path="dummy.parquet", target="y", date_column="snapshot_date"),
+            split=SplitConfig(method="temporal"),
+        )
+        assert cfg.split.method == "temporal"
+
+    def test_date_value_roles_with_non_temporal_method_raises(self):
+        with pytest.raises(ValidationError, match="only used when split.method='temporal'"):
+            _minimal_config(
+                split=SplitConfig(method="random", date_value_roles={"train": ["a"], "oot": ["b"]})
+            )
+
+    def test_date_value_roles_unknown_role_raises(self):
+        with pytest.raises(ValidationError, match="unknown role"):
+            SplitConfig(method="temporal", date_value_roles={"bogus": ["a"]})
+
+    def test_date_value_roles_missing_oot_raises(self):
+        with pytest.raises(ValidationError, match="must include a non-empty 'oot' role"):
+            SplitConfig(method="temporal", date_value_roles={"train": ["a"]})
+
+    def test_date_value_roles_duplicate_value_raises(self):
+        with pytest.raises(ValidationError, match="both"):
+            SplitConfig(
+                method="temporal",
+                date_value_roles={"train": ["a"], "test": ["a"], "oot": ["b"]},
+            )
+
+
+class TestPreflight:
     def test_temporal_with_date_column_passes(self):
         cfg = _minimal_config(
             data=DataConfig(path="dummy.parquet", target="y", date_column="snapshot_date"),

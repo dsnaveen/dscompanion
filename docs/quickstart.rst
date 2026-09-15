@@ -46,12 +46,15 @@ Every stage is also usable directly, sklearn-style (``fit`` / ``transform`` /
 
    df = pd.read_parquet("data/credit_applications.parquet")
 
-   # 1. Split — temporal, with an out-of-time holdout
+   # 1. Split — temporal, with an out-of-time holdout. snapshot_date holds a
+   #    small number of discrete monthly values; the newest is always OOT,
+   #    with train/val/test assigned automatically for 2-4 distinct values
+   #    (see DataSplitter's docstring for the exact table, and
+   #    date_value_roles for explicit control or 5+ distinct values).
    split = ml.DataSplitter(
        strategy="temporal",
        date_col="snapshot_date",
        target_col="default_flag",
-       oot_cutoff="2023-09-01",
    ).fit_split(df)
 
    # 2. EDA — univariate, bivariate, multivariate in one call

@@ -31,7 +31,9 @@ data:
   # ignore_columns:                  # optional denylist: drop these, keep everything else — mutually
   #   - customer_id                  # exclusive with feature_columns (set at most one); cannot include
   #   - internal_notes                # target or date_column
-  # date_column: transaction_date    # required only when split.method = temporal
+  # date_column: snapshot_month      # required only when split.method = temporal — expects a small
+                                      # number of discrete snapshot values (e.g. monthly/quarterly
+                                      # periods), not a per-row continuous timestamp
   # nrows: 50000                     # DEV ONLY — random sample of this many rows (seeded, reproducible),
   #                                  # not the first 50000 — remove before production runs.
   #                                  # Mutually exclusive with fraction_rows below.
@@ -47,6 +49,16 @@ split:
   test_size: 0.2                     # fraction of full dataset held out for test
   val_size: 0.1                      # fraction of training set used for validation
   # group_column: customer_id        # required only when method = grouped
+  # date_value_roles:                # method = temporal only. With 2-4 distinct data.date_column
+  #   train:                         # values, this is optional — the newest value is always OOT and
+  #     - "2024-01"                  # the rest are assigned automatically (see DataSplitter's
+  #     - "2024-02"                  # docstring for the exact table). Required (and must cover every
+  #   test:                          # distinct value exactly once, with a non-empty "oot" key) when
+  #     - "2024-03"                  # there are 5+ distinct values, or to override the automatic
+  #   val:                           # 2-4 assignment.
+  #     - "2024-04"
+  #   oot:
+  #     - "2024-05"
 
 # ── EDA ───────────────────────────────────────────────────────────────────────
 eda:

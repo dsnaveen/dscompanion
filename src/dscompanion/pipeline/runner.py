@@ -483,8 +483,9 @@ class PipelineRunner:
         warnings: list[str] = []
 
         # Cross-config structural checks
-        if cfg.split.method == "temporal" and not cfg.data.date_column:
-            errors.append("split.method='temporal' requires data.date_column to be set.")
+        # (temporal-requires-date_column is enforced earlier, at PipelineConfig
+        # construction time — see PipelineConfig.validate_split_compatibility —
+        # so an invalid combination can never reach a constructed runner here.)
         if cfg.split.method == "grouped" and not cfg.split.group_column:
             errors.append("split.method='grouped' requires split.group_column to be set.")
 
@@ -640,6 +641,7 @@ class PipelineRunner:
             test_size=cfg.split.test_size,
             val_size=cfg.split.val_size,
             date_col=cfg.data.date_column,
+            date_value_roles=cfg.split.date_value_roles,
             group_col=cfg.split.group_column,
             target_col=cfg.data.target,
         )

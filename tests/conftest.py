@@ -100,9 +100,18 @@ def synthetic_df() -> pd.DataFrame:
 
 @pytest.fixture(scope="session")
 def data_split(synthetic_df: pd.DataFrame) -> DataSplit:
-    """Temporal DataSplit on the synthetic dataset."""
+    """General-purpose DataSplit (grouped, with an OOT cutoff) on the synthetic dataset.
+
+    Uses ``strategy="grouped"`` rather than ``"temporal"`` because
+    ``snapshot_date`` here is a per-row continuous timestamp (one nearly
+    unique value per row) — ``"temporal"`` now expects ``date_col`` to hold
+    a small number of discrete snapshot values (e.g. monthly/quarterly
+    periods) and validates that constraint. ``"grouped"``'s independent
+    ``oot_cutoff`` support (unchanged, still date-range based) reproduces
+    the same train/val/test/OOT shape this fixture always had.
+    """
     splitter = DataSplitter(
-        strategy="temporal",
+        strategy="grouped",
         test_size=0.2,
         oot_cutoff="2023-09-01",
         date_col="snapshot_date",

@@ -247,8 +247,9 @@ class DataSplitter:
     at INFO level after each successful split.
 
     Args:
-        strategy: Partitioning strategy.  One of ``"temporal"`` (chronological
-            train/val/test with OOT carved out by date), ``"stratified"``
+        strategy: Partitioning strategy.  One of ``"temporal"`` (snapshot-based
+            train/val/test/OOT assignment by distinct ``date_col`` value —
+            see ``_temporal_split`` for the exact rule), ``"stratified"``
             (class-balanced random split via ``StratifiedShuffleSplit``),
             ``"grouped"`` (splits by ``group_col`` — either a deliberate,
             user-directed population boundary when ``group_test_values`` is
@@ -263,10 +264,32 @@ class DataSplitter:
         val_size: Fraction of the post-test training data to allocate to
             validation.  Defaults to ``0.1``.
         oot_cutoff: ISO date string (e.g. ``"2023-01-01"``).  Rows on or after
-            this date form the OOT set.  Required for ``strategy="temporal"``;
-            also supported by ``strategy="grouped"`` when ``date_col`` is set.
-        date_col: Name of the datetime column in the DataFrame.  Required for
-            ``strategy="temporal"``; optional for ``strategy="grouped"``.
+            this date form the OOT set.  Only used by ``strategy="grouped"``
+            when ``date_col`` is also set; ``strategy="temporal"`` uses
+            ``date_value_roles``/automatic snapshot assignment instead (see
+            ``date_col``/``date_value_roles``).
+        date_col: Name of the column holding a small number of discrete
+            snapshot values (e.g. a monthly/quarterly period), not a
+            per-row continuous timestamp.  Required for
+            ``strategy="temporal"``; optional for ``strategy="grouped"``
+            (paired with ``oot_cutoff`` there).
+        date_value_roles: Explicit mapping of ``date_col`` values to roles,
+            e.g. ``{"train": ["2024-01"], "test": ["2024-02"], "oot":
+            ["2024-03"]}``.  Keys must be a subset of ``{"train", "val",
+            "test", "oot"}``; every distinct value in ``date_col`` must be
+            covered by exactly one role, and ``"oot"`` must be present and
+            non-empty.  Only used by ``strategy="temporal"``.  When ``None``
+            (the default), ``strategy="temporal"`` instead uses the
+            automatic assignment: the newest distinct ``date_col`` value is
+            always OOT; with 3 distinct values the 2nd-newest is val whole;
+            with 4 distinct values the 3rd-newest is test whole and the
+            oldest is train whole; any values not covered by these whole
+            assignments (e.g. the sole remaining oldest value when there are
+            only 2 or 3 distinct values) are pooled and randomly split
+            across whichever of train/val/test still need filling, using
+            ``test_size``/``val_size`` scoped to that pool.  Only 2-4
+            distinct ``date_col`` values are supported automatically; 5 or
+            more requires setting ``date_value_roles`` explicitly.
         group_col: Name of the group/entity column.  Required for
             ``strategy="grouped"``.
         group_test_values: Set/list of ``group_col`` values that define the
@@ -288,8 +311,10 @@ class DataSplitter:
     Raises:
         ValueError: If required parameters for the chosen strategy are missing
             at construction time, or if validation checks in ``fit_split``
-            fail (e.g. missing columns, OOT split too small, unknown or
-            all-matching/no-matching ``group_test_values``).
+            fail (e.g. missing columns, OOT split too small, invalid
+            ``date_value_roles``, unsupported distinct-value count for
+            automatic temporal assignment, unknown or all-matching/no-matching
+            ``group_test_values``).
     """
 
     def __init__(
@@ -299,6 +324,7 @@ class DataSplitter:
         val_size: float = settings.default_val_size,
         oot_cutoff: str | None = None,
         date_col: str | None = None,
+        date_value_roles: dict[str, list] | None = None,
         group_col: str | None = None,
         group_test_values: set | list | None = None,
         target_col: str = "target",
@@ -309,6 +335,7 @@ class DataSplitter:
         self.val_size = val_size
         self.oot_cutoff = oot_cutoff
         self.date_col = date_col
+        self.date_value_roles = date_value_roles
         self.group_col = group_col
         self.group_test_values = group_test_values
         self.target_col = target_col
@@ -439,35 +466,125 @@ class DataSplitter:
     # ── Strategy implementations ─────────────────────────────────────────────
 
     def _temporal_split(self, df, X, y):
-        cutoff = pd.to_datetime(self.oot_cutoff)
+        """Assign rows to train/val/test/OOT by whole ``date_col`` snapshot value.
+
+        Two modes:
+
+        - ``self.date_value_roles`` set: each role's rows are exactly the
+          rows whose ``date_col`` value is in that role's list.
+        - ``self.date_value_roles`` is ``None``: automatic assignment over
+          the 2-4 distinct ``date_col`` values present (newest is always
+          OOT; see the class docstring's ``date_value_roles`` entry for the
+          full table). Whichever single oldest value isn't covered by a
+          whole-role assignment is randomly split, via ``self.test_size``/
+          ``self.val_size``, across the roles still needing rows.
+
+        Args:
+            df: Full input DataFrame, used to read ``date_col``.
+            X: Feature matrix (``df`` minus the target column).
+            y: Target Series.
+
+        Returns:
+            tuple: ``(train_X, train_y, val_X, val_y, test_X, test_y, oot_X,
+            oot_y)``.
+        """
         date_col = df[self.date_col]
 
-        oot_mask = date_col >= cutoff
-        in_sample_mask = ~oot_mask
+        if self.date_value_roles:
 
-        oot_X = X[oot_mask]
-        oot_y = y[oot_mask]
-        in_X = (
-            X[in_sample_mask].sort_values(
-                by=self.date_col if self.date_col in X.columns else X.columns[0]
+            def _role_xy(role: str) -> tuple[pd.DataFrame, pd.Series]:
+                mask = date_col.isin(set(self.date_value_roles.get(role, [])))
+                return X[mask], y[mask]
+
+            train_X, train_y = _role_xy("train")
+            val_X, val_y = _role_xy("val")
+            test_X, test_y = _role_xy("test")
+            oot_X, oot_y = _role_xy("oot")
+            return train_X, train_y, val_X, val_y, test_X, test_y, oot_X, oot_y
+
+        sorted_vals = sorted(date_col.dropna().unique(), key=lambda v: pd.to_datetime(v))
+        k = len(sorted_vals)
+
+        oot_mask = date_col == sorted_vals[-1]
+        oot_X, oot_y = X[oot_mask], y[oot_mask]
+
+        if k == 4:
+            train_mask = date_col == sorted_vals[0]
+            test_mask = date_col == sorted_vals[1]
+            val_mask = date_col == sorted_vals[2]
+            train_X, train_y = X[train_mask], y[train_mask]
+            test_X, test_y = X[test_mask], y[test_mask]
+            val_X, val_y = X[val_mask], y[val_mask]
+        elif k == 3:
+            val_mask = date_col == sorted_vals[1]
+            val_X, val_y = X[val_mask], y[val_mask]
+            pool_mask = date_col == sorted_vals[0]
+            train_X, train_y, test_X, test_y = self._split_pool_train_test(
+                X[pool_mask], y[pool_mask]
             )
-            if self.date_col in X.columns
-            else X[in_sample_mask]
-        )
-        in_y = y[in_sample_mask]
-
-        # Chronological train/val/test
-        n = len(in_y)
-        test_n = max(1, int(n * self.test_size))
-        val_n = max(1, int((n - test_n) * self.val_size))
-
-        test_X, test_y = in_X.iloc[-test_n:], in_y.iloc[-test_n:]
-        remaining_X = in_X.iloc[:-test_n]
-        remaining_y = in_y.iloc[:-test_n]
-        val_X, val_y = remaining_X.iloc[-val_n:], remaining_y.iloc[-val_n:]
-        train_X, train_y = remaining_X.iloc[:-val_n], remaining_y.iloc[:-val_n]
+        else:  # k == 2
+            pool_mask = date_col == sorted_vals[0]
+            train_X, train_y, val_X, val_y, test_X, test_y = self._split_pool_train_val_test(
+                X[pool_mask], y[pool_mask]
+            )
 
         return train_X, train_y, val_X, val_y, test_X, test_y, oot_X, oot_y
+
+    def _split_pool_train_test(
+        self, X: pd.DataFrame, y: pd.Series
+    ) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
+        """Randomly split a pooled subset into train/test only, via ``self.test_size``.
+
+        Used by the automatic temporal assignment (``k == 3``) for the sole
+        oldest ``date_col`` value, once the newest and 2nd-newest values have
+        already been assigned whole to OOT and val respectively.
+
+        Args:
+            X: Feature rows belonging to the pooled ``date_col`` value.
+            y: Corresponding target rows.
+
+        Returns:
+            tuple: ``(train_X, train_y, test_X, test_y)``.
+        """
+        rng = np.random.RandomState(self.random_state)
+        idx = rng.permutation(len(X))
+        test_n = max(1, int(len(X) * self.test_size))
+        test_idx, train_idx = idx[:test_n], idx[test_n:]
+        return X.iloc[train_idx], y.iloc[train_idx], X.iloc[test_idx], y.iloc[test_idx]
+
+    def _split_pool_train_val_test(
+        self, X: pd.DataFrame, y: pd.Series
+    ) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series, pd.DataFrame, pd.Series]:
+        """Randomly split a pooled subset into train/val/test via ``test_size``/``val_size``.
+
+        Used by the automatic temporal assignment (``k == 2``) for the sole
+        oldest ``date_col`` value, once the newest value has already been
+        assigned whole to OOT. Mirrors ``_random_split``'s proportional
+        permutation slicing, applied to this pool instead of the full
+        dataset.
+
+        Args:
+            X: Feature rows belonging to the pooled ``date_col`` value.
+            y: Corresponding target rows.
+
+        Returns:
+            tuple: ``(train_X, train_y, val_X, val_y, test_X, test_y)``.
+        """
+        rng = np.random.RandomState(self.random_state)
+        idx = rng.permutation(len(X))
+        test_n = max(1, int(len(X) * self.test_size))
+        val_n = max(1, int((len(X) - test_n) * self.val_size))
+        test_idx = idx[:test_n]
+        val_idx = idx[test_n : test_n + val_n]
+        train_idx = idx[test_n + val_n :]
+        return (
+            X.iloc[train_idx],
+            y.iloc[train_idx],
+            X.iloc[val_idx],
+            y.iloc[val_idx],
+            X.iloc[test_idx],
+            y.iloc[test_idx],
+        )
 
     def _stratified_split(self, X, y, is_classification):
         """Split into train/val/test, stratifying on ``y`` only when it's classification-shaped.
@@ -521,6 +638,20 @@ class DataSplitter:
         return train_X, train_y, val_X, val_y, test_X, test_y, None, None
 
     def _grouped_split(self, df, X, y, is_classification):
+        # Carve OOT out first when oot_cutoff is set, so its rows are excluded
+        # from the group-based train/val/test population below — mirrors
+        # _temporal_split's OOT-first ordering. Doing this after the group
+        # split instead would let OOT rows also land in train/val/test.
+        oot_X, oot_y = None, None
+        if self.oot_cutoff and self.date_col and self.date_col in df.columns:
+            cutoff = pd.to_datetime(self.oot_cutoff)
+            oot_mask = df[self.date_col] >= cutoff
+            oot_X, oot_y = X[oot_mask], y[oot_mask]
+            in_sample_mask = ~oot_mask
+            df = df[in_sample_mask]
+            X = X[in_sample_mask]
+            y = y[in_sample_mask]
+
         if self.group_test_values:
             # Deliberate, user-directed population split: group_col values in
             # group_test_values define the test set exactly (deterministic, no
@@ -568,14 +699,6 @@ class DataSplitter:
             val_X = train_val_X.iloc[val_idx]
             val_y = train_val_y.iloc[val_idx]
 
-        # OOT by date if oot_cutoff provided
-        oot_X, oot_y = None, None
-        if self.oot_cutoff and self.date_col and self.date_col in df.columns:
-            cutoff = pd.to_datetime(self.oot_cutoff)
-            oot_mask = df[self.date_col] >= cutoff
-            oot_X = X[oot_mask]
-            oot_y = y[oot_mask]
-
         return train_X, train_y, val_X, val_y, test_X, test_y, oot_X, oot_y
 
     def _random_split(self, X, y):
@@ -608,14 +731,35 @@ class DataSplitter:
                 raise ValueError("strategy='temporal' requires date_col to be set.")
             if self.date_col not in df.columns:
                 raise ValueError(f"date_col {self.date_col!r} not found in DataFrame.")
-            if not self.oot_cutoff:
-                raise ValueError("strategy='temporal' requires oot_cutoff to be set.")
-            cutoff = pd.to_datetime(self.oot_cutoff)
-            oot_n = (pd.to_datetime(df[self.date_col]) >= cutoff).sum()
+
+            present_values = set(df[self.date_col].dropna().unique())
+
+            if self.date_value_roles:
+                self._validate_date_value_roles(present_values)
+                oot_values = set(self.date_value_roles.get("oot", []))
+            else:
+                n_unique = len(present_values)
+                if n_unique < 2:
+                    raise ValueError(
+                        "strategy='temporal' requires at least 2 distinct values in "
+                        f"date_col {self.date_col!r} to form an OOT split (got "
+                        f"{n_unique})."
+                    )
+                if n_unique > 4:
+                    raise ValueError(
+                        f"date_col {self.date_col!r} has {n_unique} distinct values — "
+                        "automatic temporal train/val/test/oot assignment only "
+                        "supports 2-4 distinct values. Set split.date_value_roles to "
+                        "assign each value explicitly."
+                    )
+                newest = max(present_values, key=lambda v: pd.to_datetime(v))
+                oot_values = {newest}
+
+            oot_n = df[self.date_col].isin(oot_values).sum()
             if oot_n < settings.splitter_oot_min_rows:
                 raise ValueError(
-                    "OOT split has only %d rows (< %d). Adjust oot_cutoff."
-                    % (oot_n, settings.splitter_oot_min_rows)
+                    "OOT split has only %d rows (< %d) for date_col=%r values %s."
+                    % (oot_n, settings.splitter_oot_min_rows, self.date_col, sorted(oot_values))
                 )
 
         if self.strategy == "grouped" and not self.group_col:
@@ -642,6 +786,51 @@ class DataSplitter:
                     "group_test_values matches every row in %r — no rows left for "
                     "train/val." % self.group_col
                 )
+
+    def _validate_date_value_roles(self, present_values: set) -> None:
+        """Validate ``self.date_value_roles`` against the distinct values actually in ``date_col``.
+
+        Args:
+            present_values: Set of distinct, non-null values found in
+                ``df[self.date_col]``.
+
+        Raises:
+            ValueError: If a role name is unknown, a listed value isn't
+                present in ``date_col``, a value is assigned to more than one
+                role, the ``"oot"`` role is missing/empty, or any present
+                value isn't covered by any role.
+        """
+        valid_roles = {"train", "val", "test", "oot"}
+        assigned: set = set()
+        for role, values in self.date_value_roles.items():
+            if role not in valid_roles:
+                raise ValueError(
+                    f"date_value_roles has unknown role {role!r} — must be one of "
+                    f"{sorted(valid_roles)}."
+                )
+            values_set = set(values)
+            unknown = values_set - present_values
+            if unknown:
+                raise ValueError(
+                    f"date_value_roles[{role!r}] references values not present in "
+                    f"{self.date_col!r}: {sorted(unknown)}."
+                )
+            overlap = values_set & assigned
+            if overlap:
+                raise ValueError(
+                    f"date_value_roles assigns {sorted(overlap)} to more than one role."
+                )
+            assigned |= values_set
+
+        if not self.date_value_roles.get("oot"):
+            raise ValueError("date_value_roles must include a non-empty 'oot' role.")
+
+        unassigned = present_values - assigned
+        if unassigned:
+            raise ValueError(
+                f"date_value_roles does not cover every distinct value in "
+                f"{self.date_col!r} — missing: {sorted(unassigned)}."
+            )
 
     @staticmethod
     def _check_class_ratio(train_y: pd.Series, other_y: pd.Series, split_name: str) -> None:

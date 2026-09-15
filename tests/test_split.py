@@ -10,7 +10,15 @@ import pytest
 from dscompanion.split import DataSplit, DataSplitter
 
 
-class TestTemporalSplit:
+class TestGroupedSplitWithOOT:
+    """``data_split`` fixture: strategy="grouped" with an independent oot_cutoff.
+
+    Covers generic DataSplit/metadata behavior (date ranges, non-overlap,
+    size bookkeeping, summary) that doesn't depend on which strategy
+    produced the split — see TestTemporalSnapshotSplit below for the
+    snapshot-based temporal-strategy-specific tests.
+    """
+
     def test_all_oot_dates_after_cutoff(self, data_split: DataSplit):
         if len(data_split.oot_X) == 0:
             pytest.skip("No OOT rows in this split")
@@ -228,19 +236,153 @@ class TestValidation:
             splitter.fit_split(synthetic_df)
 
     def test_temporal_without_date_col_raises(self, synthetic_df):
-        splitter = DataSplitter(strategy="temporal", oot_cutoff="2023-09-01")
+        splitter = DataSplitter(strategy="temporal")
         with pytest.raises(ValueError, match="date_col"):
             splitter.fit_split(synthetic_df)
 
-    def test_tiny_oot_raises(self, synthetic_df):
+    def test_tiny_oot_raises(self):
+        # 2 distinct snapshot values; newest has only 3 rows (< splitter_oot_min_rows)
+        rng = np.random.RandomState(0)
+        n_old, n_new = 200, 3
+        df = pd.DataFrame(
+            {
+                "period": ["2024-01"] * n_old + ["2024-02"] * n_new,
+                "f1": rng.randn(n_old + n_new),
+                "target": rng.choice([0, 1], size=n_old + n_new),
+            }
+        )
+        splitter = DataSplitter(strategy="temporal", date_col="period", target_col="target")
+        with pytest.raises(ValueError, match="OOT"):
+            splitter.fit_split(df)
+
+
+class TestTemporalSnapshotSplit:
+    """Snapshot-based temporal strategy: date_col holds a small number of
+
+    discrete values (e.g. monthly/quarterly periods), not a per-row
+    continuous timestamp. Newest value is always OOT; automatic assignment
+    covers 2-4 distinct values, ``date_value_roles`` covers any count
+    (required for 5+).
+    """
+
+    @staticmethod
+    def _make_df(period_counts: dict, seed: int = 0) -> pd.DataFrame:
+        rng = np.random.RandomState(seed)
+        periods, targets, f1 = [], [], []
+        for period, n in period_counts.items():
+            periods.extend([period] * n)
+            targets.extend(rng.choice([0, 1], size=n).tolist())
+            f1.extend(rng.randn(n).tolist())
+        return pd.DataFrame({"period": periods, "f1": f1, "target": targets})
+
+    def test_one_distinct_value_raises(self):
+        df = self._make_df({"2024-01": 100})
+        splitter = DataSplitter(strategy="temporal", date_col="period", target_col="target")
+        with pytest.raises(ValueError, match="at least 2 distinct values"):
+            splitter.fit_split(df)
+
+    def test_five_distinct_values_without_roles_raises(self):
+        df = self._make_df({f"2024-0{i}": 100 for i in range(1, 6)})
+        splitter = DataSplitter(strategy="temporal", date_col="period", target_col="target")
+        with pytest.raises(ValueError, match="date_value_roles"):
+            splitter.fit_split(df)
+
+    def test_two_values_pools_train_test_val_from_oldest(self):
+        df = self._make_df({"2024-01": 200, "2024-02": 80})
+        splitter = DataSplitter(
+            strategy="temporal", date_col="period", target_col="target", test_size=0.2, val_size=0.1
+        )
+        split = splitter.fit_split(df)
+
+        assert set(split.oot_X.index) == set(df.index[df["period"] == "2024-02"])
+        oldest_idx = set(df.index[df["period"] == "2024-01"])
+        pooled_idx = set(split.train_X.index) | set(split.val_X.index) | set(split.test_X.index)
+        assert pooled_idx == oldest_idx
+        assert len(split.test_y) == max(1, int(200 * 0.2))
+        assert len(split.val_y) == max(1, int((200 - len(split.test_y)) * 0.1))
+
+    def test_three_values_val_whole_pool_train_test(self):
+        df = self._make_df({"2024-01": 200, "2024-02": 60, "2024-03": 80})
+        splitter = DataSplitter(strategy="temporal", date_col="period", target_col="target")
+        split = splitter.fit_split(df)
+
+        assert set(split.oot_X.index) == set(df.index[df["period"] == "2024-03"])
+        assert set(split.val_X.index) == set(df.index[df["period"] == "2024-02"])
+        oldest_idx = set(df.index[df["period"] == "2024-01"])
+        assert set(split.train_X.index) | set(split.test_X.index) == oldest_idx
+
+    def test_four_values_all_whole_no_randomness(self):
+        df = self._make_df({"2024-01": 100, "2024-02": 90, "2024-03": 80, "2024-04": 70})
+        splitter = DataSplitter(strategy="temporal", date_col="period", target_col="target")
+        split = splitter.fit_split(df)
+
+        assert set(split.train_X.index) == set(df.index[df["period"] == "2024-01"])
+        assert set(split.test_X.index) == set(df.index[df["period"] == "2024-02"])
+        assert set(split.val_X.index) == set(df.index[df["period"] == "2024-03"])
+        assert set(split.oot_X.index) == set(df.index[df["period"] == "2024-04"])
+
+    def test_explicit_date_value_roles_overrides_automatic(self):
+        # Only 3 distinct values, but explicitly assign differently than the
+        # automatic k=3 table (val whole) would.
+        df = self._make_df({"2024-01": 60, "2024-02": 60, "2024-03": 80})
         splitter = DataSplitter(
             strategy="temporal",
-            date_col="snapshot_date",
-            oot_cutoff="2024-01-01",  # very late cutoff → tiny OOT
+            date_col="period",
             target_col="target",
+            date_value_roles={
+                "train": ["2024-01"],
+                "test": ["2024-02"],
+                "oot": ["2024-03"],
+            },
         )
-        with pytest.raises(ValueError, match="OOT"):
-            splitter.fit_split(synthetic_df)
+        split = splitter.fit_split(df)
+
+        assert set(split.train_X.index) == set(df.index[df["period"] == "2024-01"])
+        assert set(split.test_X.index) == set(df.index[df["period"] == "2024-02"])
+        assert set(split.oot_X.index) == set(df.index[df["period"] == "2024-03"])
+        assert len(split.val_X) == 0
+
+    def test_date_value_roles_unknown_value_raises(self):
+        df = self._make_df({"2024-01": 60, "2024-02": 80})
+        splitter = DataSplitter(
+            strategy="temporal",
+            date_col="period",
+            target_col="target",
+            date_value_roles={"train": ["2024-01"], "oot": ["2099-01"]},
+        )
+        with pytest.raises(ValueError, match="not present"):
+            splitter.fit_split(df)
+
+    def test_date_value_roles_missing_oot_raises(self):
+        df = self._make_df({"2024-01": 60, "2024-02": 80})
+        splitter = DataSplitter(
+            strategy="temporal",
+            date_col="period",
+            target_col="target",
+            date_value_roles={"train": ["2024-01"], "test": ["2024-02"]},
+        )
+        with pytest.raises(ValueError, match="'oot'"):
+            splitter.fit_split(df)
+
+    def test_date_value_roles_uncovered_value_raises(self):
+        df = self._make_df({"2024-01": 60, "2024-02": 60, "2024-03": 80})
+        splitter = DataSplitter(
+            strategy="temporal",
+            date_col="period",
+            target_col="target",
+            date_value_roles={"train": ["2024-01"], "oot": ["2024-03"]},
+        )
+        with pytest.raises(ValueError, match="does not cover"):
+            splitter.fit_split(df)
+
+    def test_date_value_roles_duplicate_assignment_raises(self):
+        with pytest.raises(ValueError, match="more than one role"):
+            DataSplitter(
+                strategy="temporal",
+                date_col="period",
+                target_col="target",
+                date_value_roles={"train": ["2024-01"], "test": ["2024-01"], "oot": ["2024-02"]},
+            ).fit_split(self._make_df({"2024-01": 60, "2024-02": 80}))
 
 
 class TestSerialisation:
