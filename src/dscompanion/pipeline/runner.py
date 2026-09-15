@@ -566,6 +566,11 @@ class PipelineRunner:
             if missing:
                 raise RuntimeError(f"feature_columns references columns not in dataset: {missing}")
             df = df[sorted(keep)]
+        elif cfg.data.ignore_columns:
+            missing = set(cfg.data.ignore_columns) - set(df.columns)
+            if missing:
+                raise RuntimeError(f"ignore_columns references columns not in dataset: {missing}")
+            df = df.drop(columns=cfg.data.ignore_columns)
 
         return df
 

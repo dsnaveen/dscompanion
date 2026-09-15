@@ -51,9 +51,15 @@ class DataConfig(BaseModel):
         format (str): File format.  One of ``"parquet"``, ``"csv"``,
             ``"excel"``, ``"delta"``.  Defaults to ``"parquet"``.
         target (str): Name of the target column in the dataset.
-        feature_columns (list[str] | None): Explicit list of feature columns
-            to use.  When ``None`` (default), all columns except ``target``
-            and ``date_column`` are used as features.
+        feature_columns (list[str] | None): Explicit allowlist of feature
+            columns to use.  When ``None`` (default), all columns except
+            ``target`` and ``date_column`` are used as features.  Mutually
+            exclusive with ``ignore_columns`` — set at most one.
+        ignore_columns (list[str] | None): Explicit denylist of columns to
+            drop (e.g. an ID column you don't want to exhaustively exclude
+            via ``feature_columns``); every other column is kept.  Cannot
+            include ``target`` or ``date_column``.  Mutually exclusive with
+            ``feature_columns`` — set at most one.
         date_column (str | None): Name of a date/timestamp column used only
             for temporal splitting.  Not included in features.
         nrows (int | None): If set, only the first ``nrows`` rows are loaded.
@@ -78,6 +84,7 @@ class DataConfig(BaseModel):
     format: str = "parquet"
     target: str
     feature_columns: list[str] | None = None
+    ignore_columns: list[str] | None = None
     date_column: str | None = None
     nrows: int | None = None
     sheet_name: str | int | list[str | int] | None = None
@@ -89,6 +96,22 @@ class DataConfig(BaseModel):
         if v not in allowed:
             raise ValueError(f"format must be one of {allowed}, got {v!r}")
         return v
+
+    @model_validator(mode="after")
+    def valid_column_selection(self) -> "DataConfig":
+        if self.feature_columns is not None and self.ignore_columns is not None:
+            raise ValueError(
+                "Set at most one of feature_columns (allowlist) or ignore_columns "
+                "(denylist), not both — they express mutually exclusive selection strategies."
+            )
+        if self.ignore_columns is not None:
+            protected = {self.target} | ({self.date_column} if self.date_column else set())
+            conflict = protected & set(self.ignore_columns)
+            if conflict:
+                raise ValueError(
+                    f"ignore_columns cannot include the target or date_column: {conflict}"
+                )
+        return self
 
 
 # ── Split ─────────────────────────────────────────────────────────────────────

@@ -86,6 +86,28 @@ class TestPipelineConfigValidation:
         with pytest.raises(ValidationError, match="format must be one of"):
             DataConfig(path="dummy.parquet", target="y", format="xml")
 
+    def test_feature_columns_and_ignore_columns_together_raises(self):
+        with pytest.raises(ValidationError, match="mutually exclusive"):
+            DataConfig(
+                path="dummy.parquet",
+                target="y",
+                feature_columns=["a"],
+                ignore_columns=["b"],
+            )
+
+    def test_ignore_columns_containing_target_raises(self):
+        with pytest.raises(ValidationError, match="cannot include the target or date_column"):
+            DataConfig(path="dummy.parquet", target="y", ignore_columns=["y"])
+
+    def test_ignore_columns_containing_date_column_raises(self):
+        with pytest.raises(ValidationError, match="cannot include the target or date_column"):
+            DataConfig(
+                path="dummy.parquet",
+                target="y",
+                date_column="ts",
+                ignore_columns=["ts"],
+            )
+
     def test_invalid_split_method_raises(self):
         with pytest.raises(ValidationError, match="method must be one of"):
             SplitConfig(method="bogus")
@@ -1067,6 +1089,49 @@ class TestRunLeaderboard:
 
         expected_estimator = ModelFactory.build(task="classification", algorithm=winner).estimator
         assert type(model.estimator) is type(expected_estimator)
+
+
+# ---------------------------------------------------------------------------
+# ignore_columns (DataConfig denylist, alternative to feature_columns)
+# ---------------------------------------------------------------------------
+
+
+class TestIgnoreColumns:
+    """DataConfig.ignore_columns — drop specific columns, keep everything else."""
+
+    @pytest.fixture
+    def uncorrelated_parquet(self, tmp_path):
+        rng = np.random.RandomState(42)
+        n = 200
+        df = pd.DataFrame(
+            {
+                "x1": rng.randn(n),
+                "x2": rng.uniform(0, 1, n),
+                "customer_id": range(n),
+                "y": [0, 1] * (n // 2),
+            }
+        )
+        path = tmp_path / "uncorrelated.parquet"
+        df.to_parquet(path, index=False)
+        return path
+
+    def _run(self, path, ignore_columns):
+        cfg = PipelineConfig(
+            name="ignore_columns_test",
+            data={"path": str(path), "target": "y", "ignore_columns": ignore_columns},
+            model={"task": "classification", "algorithm": "logistic"},
+        )
+        return PipelineRunner(cfg).run()
+
+    def test_ignored_column_excluded_others_kept(self, uncorrelated_parquet):
+        result = self._run(uncorrelated_parquet, ["customer_id"])
+        cols = set(result.split.X_train.columns)
+        assert "customer_id" not in cols
+        assert {"x1", "x2"} <= cols
+
+    def test_missing_column_raises_clear_error(self, uncorrelated_parquet):
+        with pytest.raises(RuntimeError, match="ignore_columns references columns not in dataset"):
+            self._run(uncorrelated_parquet, ["does_not_exist"])
 
 
 # ---------------------------------------------------------------------------
