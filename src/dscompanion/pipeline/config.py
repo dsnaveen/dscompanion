@@ -62,8 +62,16 @@ class DataConfig(BaseModel):
             ``feature_columns`` — set at most one.
         date_column (str | None): Name of a date/timestamp column used only
             for temporal splitting.  Not included in features.
-        nrows (int | None): If set, only the first ``nrows`` rows are loaded.
-            Use during local development only — never set this in production.
+        nrows (int | None): If set, a random sample of this many rows is
+            loaded (seeded via ``settings.random_state`` for reproducibility
+            — not the first ``nrows`` rows, so a small sample stays
+            representative rather than biased toward file order).  Use
+            during local development only — never set this in production.
+            Mutually exclusive with ``fraction_rows`` — set at most one.
+        fraction_rows (float | None): If set, a random fraction of the full
+            dataset is loaded instead of a fixed row count — e.g. ``0.1``
+            for 10%.  Must be in ``(0, 1)``.  Same seeding/dev-only caveat as
+            ``nrows``.  Mutually exclusive with ``nrows`` — set at most one.
         sheet_name (str | int | list[str | int] | None): Only used when
             ``format="excel"``; ignored otherwise.  A single sheet name/index
             reads that one sheet.  A list of names/indices reads each and
@@ -87,6 +95,7 @@ class DataConfig(BaseModel):
     ignore_columns: list[str] | None = None
     date_column: str | None = None
     nrows: int | None = None
+    fraction_rows: float | None = None
     sheet_name: str | int | list[str | int] | None = None
 
     @field_validator("format")
@@ -96,6 +105,22 @@ class DataConfig(BaseModel):
         if v not in allowed:
             raise ValueError(f"format must be one of {allowed}, got {v!r}")
         return v
+
+    @field_validator("fraction_rows")
+    @classmethod
+    def valid_fraction_rows(cls, v: float | None) -> float | None:
+        if v is not None and not 0.0 < v < 1.0:
+            raise ValueError(f"fraction_rows must be in (0, 1), got {v}")
+        return v
+
+    @model_validator(mode="after")
+    def valid_row_sampling(self) -> "DataConfig":
+        if self.nrows is not None and self.fraction_rows is not None:
+            raise ValueError(
+                "Set at most one of nrows or fraction_rows, not both — "
+                "they express mutually exclusive row-sampling strategies."
+            )
+        return self
 
     @model_validator(mode="after")
     def valid_column_selection(self) -> "DataConfig":

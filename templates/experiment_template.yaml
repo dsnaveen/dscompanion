@@ -32,7 +32,11 @@ data:
   #   - customer_id                  # exclusive with feature_columns (set at most one); cannot include
   #   - internal_notes                # target or date_column
   # date_column: transaction_date    # required only when split.method = temporal
-  # nrows: 50000                     # DEV ONLY — remove before production runs
+  # nrows: 50000                     # DEV ONLY — random sample of this many rows (seeded, reproducible),
+  #                                  # not the first 50000 — remove before production runs.
+  #                                  # Mutually exclusive with fraction_rows below.
+  # fraction_rows: 0.1               # DEV ONLY — random 10% sample instead of a fixed row count.
+  #                                  # Must be in (0, 1). Mutually exclusive with nrows above.
   # sheet_name: "Jan"                # format=excel only: one sheet name/index, or a list to
   #                                  # vertically concat several (all must have identical columns).
   #                                  # default (omitted) = first sheet only, not every sheet.

@@ -108,6 +108,14 @@ class TestPipelineConfigValidation:
                 ignore_columns=["ts"],
             )
 
+    def test_fraction_rows_out_of_range_raises(self):
+        with pytest.raises(ValidationError, match=r"fraction_rows must be in \(0, 1\)"):
+            DataConfig(path="dummy.parquet", target="y", fraction_rows=1.5)
+
+    def test_nrows_and_fraction_rows_together_raises(self):
+        with pytest.raises(ValidationError, match="mutually exclusive"):
+            DataConfig(path="dummy.parquet", target="y", nrows=10, fraction_rows=0.5)
+
     def test_invalid_split_method_raises(self):
         with pytest.raises(ValidationError, match="method must be one of"):
             SplitConfig(method="bogus")
@@ -1089,6 +1097,48 @@ class TestRunLeaderboard:
 
         expected_estimator = ModelFactory.build(task="classification", algorithm=winner).estimator
         assert type(model.estimator) is type(expected_estimator)
+
+
+# ---------------------------------------------------------------------------
+# Row sampling (DataConfig.nrows / fraction_rows — dev-only, seeded random sample)
+# ---------------------------------------------------------------------------
+
+
+class TestRowSampling:
+    """nrows/fraction_rows sample randomly (not sequentially) and reproducibly."""
+
+    @pytest.fixture
+    def sequential_parquet(self, tmp_path):
+        df = pd.DataFrame({"idx": range(1000), "x1": range(1000), "y": [0, 1] * 500})
+        path = tmp_path / "sequential.parquet"
+        df.to_parquet(path, index=False)
+        return path
+
+    def _load(self, path, **data_overrides):
+        cfg = PipelineConfig(
+            name="row_sampling_test",
+            data={"path": str(path), "target": "y", **data_overrides},
+            model={"task": "classification", "algorithm": "logistic"},
+        )
+        return PipelineRunner(cfg)._load_data()
+
+    def test_nrows_samples_randomly_not_sequentially(self, sequential_parquet):
+        loaded = self._load(sequential_parquet, nrows=10)
+        assert len(loaded) == 10
+        assert sorted(loaded["idx"].tolist()) != list(range(10))
+
+    def test_nrows_is_reproducible_via_settings_random_state(self, sequential_parquet):
+        first = self._load(sequential_parquet, nrows=50)
+        second = self._load(sequential_parquet, nrows=50)
+        assert sorted(first["idx"].tolist()) == sorted(second["idx"].tolist())
+
+    def test_fraction_rows_samples_expected_count(self, sequential_parquet):
+        loaded = self._load(sequential_parquet, fraction_rows=0.1)
+        assert len(loaded) == 100
+
+    def test_nrows_exceeding_dataset_size_does_not_raise(self, sequential_parquet):
+        loaded = self._load(sequential_parquet, nrows=10_000)
+        assert len(loaded) == 1000
 
 
 # ---------------------------------------------------------------------------

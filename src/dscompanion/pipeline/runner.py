@@ -536,8 +536,7 @@ class PipelineRunner:
             if fmt == "parquet":
                 df = pd.read_parquet(path)
             elif fmt == "csv":
-                nrows = cfg.data.nrows
-                df = pd.read_csv(path, nrows=nrows)
+                df = pd.read_csv(path)
             elif fmt == "excel":
                 df = self._load_excel(path, cfg.data.sheet_name)
             elif fmt == "delta":
@@ -547,9 +546,16 @@ class PipelineRunner:
         except Exception as exc:
             raise RuntimeError(f"Failed to load data from {path!r}: {exc}") from exc
 
-        # Apply nrows limit for parquet/excel/delta (CSV handles it in read_csv)
-        if cfg.data.nrows and fmt != "csv":
-            df = df.head(cfg.data.nrows)
+        # Dev-only row subsampling — random, not "first N", so a small sample stays
+        # representative rather than biased toward however the source file is
+        # ordered. Seeded via settings.random_state for reproducibility. Applied
+        # uniformly across every format (CSV used to take a native, sequential
+        # read_csv(nrows=...) shortcut that avoided loading the full file — traded
+        # away here for consistent random-sampling behavior across all formats).
+        if cfg.data.nrows:
+            df = df.sample(n=min(cfg.data.nrows, len(df)), random_state=settings.random_state)
+        elif cfg.data.fraction_rows:
+            df = df.sample(frac=cfg.data.fraction_rows, random_state=settings.random_state)
 
         if cfg.data.target not in df.columns:
             raise RuntimeError(
