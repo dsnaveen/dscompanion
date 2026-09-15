@@ -46,6 +46,7 @@ dependencies = [
     # imbalanced-learn has a history of version conflicts with recent scikit-learn releases.
     "python-docx>=1.1,<2",
     "xlsxwriter>=3.2,<4",      # engine for ModelCard.to_excel()
+    "openpyxl>=3.1,<4",        # engine for DataConfig's format="excel" (pd.read_excel)
 ]
 
 [project.urls]
@@ -61,7 +62,7 @@ docs = ["sphinx>=9.0", "furo>=2025.0", "sphinx-autodoc-typehints>=3.0", "myst-pa
 # Local-dev UI only — drives PipelineRunner from a browser on a dev machine against
 # local data. app/ is never imported by dscompanion's runtime code, so this
 # extra is optional even for full local development.
-app = ["streamlit==1.59.1", "openpyxl>=3.1"]
+app = ["streamlit==1.59.1"]
 # Optional FastAPI service exposing PipelineRunner over HTTP, for a web-based
 # frontend. Not required for using dscompanion as a library.
 api = ["fastapi==0.117.1", "uvicorn==0.37.0"]

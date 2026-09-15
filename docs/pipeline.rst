@@ -14,7 +14,7 @@ Stage numbers below match the ``[N/13]`` log lines emitted at INFO level during 
      - What happens / how to configure it
    * - 1
      - Loading data
-     - Reads ``data.path`` (parquet/csv/delta) via ``DataConfig``. ``data.nrows`` caps
+     - Reads ``data.path`` (parquet/csv/excel/delta) via ``DataConfig``. ``data.nrows`` caps
        row count for dev iteration.
    * - 2
      - Splitting data

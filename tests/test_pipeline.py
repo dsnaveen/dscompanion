@@ -84,7 +84,7 @@ class TestPipelineConfigValidation:
 
     def test_invalid_data_format_raises(self):
         with pytest.raises(ValidationError, match="format must be one of"):
-            DataConfig(path="dummy.parquet", target="y", format="excel")
+            DataConfig(path="dummy.parquet", target="y", format="xml")
 
     def test_invalid_split_method_raises(self):
         with pytest.raises(ValidationError, match="method must be one of"):
@@ -1067,6 +1067,64 @@ class TestRunLeaderboard:
 
         expected_estimator = ModelFactory.build(task="classification", algorithm=winner).estimator
         assert type(model.estimator) is type(expected_estimator)
+
+
+# ---------------------------------------------------------------------------
+# Excel data loading (DataConfig format="excel")
+# ---------------------------------------------------------------------------
+
+
+class TestExcelDataLoading:
+    """DataConfig(format="excel") — single sheet, multi-sheet concat, and defaults."""
+
+    @pytest.fixture
+    def multi_sheet_workbook(self, tmp_path):
+        df_jan = pd.DataFrame({"x1": range(50), "x2": range(50, 100), "y": [0, 1] * 25})
+        df_feb = pd.DataFrame({"x1": range(100, 150), "x2": range(150, 200), "y": [0, 1] * 25})
+        path = tmp_path / "multi_sheet.xlsx"
+        with pd.ExcelWriter(path) as writer:
+            df_jan.to_excel(writer, sheet_name="Jan", index=False)
+            df_feb.to_excel(writer, sheet_name="Feb", index=False)
+        return path
+
+    def _run(self, path, sheet_name=None):
+        data = {"path": str(path), "format": "excel", "target": "y"}
+        if sheet_name is not None:
+            data["sheet_name"] = sheet_name
+        cfg = PipelineConfig(
+            name="excel_test",
+            data=data,
+            model={"task": "classification", "algorithm": "logistic"},
+        )
+        return PipelineRunner(cfg).run()
+
+    def _total_rows(self, result):
+        split = result.split
+        val_rows = split.X_val.shape[0] if split.X_val is not None else 0
+        return split.X_train.shape[0] + split.X_test.shape[0] + val_rows
+
+    def test_single_sheet_by_name(self, multi_sheet_workbook):
+        result = self._run(multi_sheet_workbook, sheet_name="Jan")
+        assert self._total_rows(result) == 50
+
+    def test_no_sheet_name_reads_first_sheet_only(self, multi_sheet_workbook):
+        result = self._run(multi_sheet_workbook)
+        assert self._total_rows(result) == 50
+
+    def test_sheet_name_list_concatenates_vertically(self, multi_sheet_workbook):
+        result = self._run(multi_sheet_workbook, sheet_name=["Jan", "Feb"])
+        assert self._total_rows(result) == 100
+
+    def test_mismatched_columns_across_sheets_raises_clear_error(self, tmp_path):
+        df_jan = pd.DataFrame({"x1": range(50), "x2": range(50, 100), "y": [0, 1] * 25})
+        df_feb = pd.DataFrame({"x1": range(50), "x3": range(50, 100), "y": [0, 1] * 25})
+        path = tmp_path / "mismatched.xlsx"
+        with pd.ExcelWriter(path) as writer:
+            df_jan.to_excel(writer, sheet_name="Jan", index=False)
+            df_feb.to_excel(writer, sheet_name="Feb", index=False)
+
+        with pytest.raises(RuntimeError, match="identical columns across sheets"):
+            self._run(path, sheet_name=["Jan", "Feb"])
 
 
 # ---------------------------------------------------------------------------

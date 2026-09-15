@@ -22,7 +22,7 @@ owner: "scientist_name"              # your name / UCIC — appears in model car
 # ── Data ─────────────────────────────────────────────────────────────────────
 data:
   path: abfss://container@account.dfs.core.windows.net/features/credit_risk.parquet  # ← REQUIRED
-  format: parquet                    # parquet | csv | delta
+  format: parquet                    # parquet | csv | excel | delta
   target: default_flag               # ← REQUIRED: column name of the target variable
   # feature_columns:                 # optional: list specific columns; default = all except target
   #   - age_band
@@ -30,6 +30,9 @@ data:
   #   - utilisation_ratio
   # date_column: transaction_date    # required only when split.method = temporal
   # nrows: 50000                     # DEV ONLY — remove before production runs
+  # sheet_name: "Jan"                # format=excel only: one sheet name/index, or a list to
+  #                                  # vertically concat several (all must have identical columns).
+  #                                  # default (omitted) = first sheet only, not every sheet.
 
 # ── Split ─────────────────────────────────────────────────────────────────────
 split:

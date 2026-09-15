@@ -41,15 +41,15 @@ __all__ = [
 class DataConfig(BaseModel):
     """Specifies where to read data and which column is the prediction target.
 
-    Supports parquet, CSV, and Delta Lake paths.  All storage paths should
-    use ``abfss://`` on Databricks.  Set ``nrows`` to a small number during
-    local development to avoid loading the full dataset.
+    Supports parquet, CSV, Excel, and Delta Lake paths.  All storage paths
+    should use ``abfss://`` on Databricks.  Set ``nrows`` to a small number
+    during local development to avoid loading the full dataset.
 
     Args:
         path (str): Full path to the input data file or Delta table.
             On Databricks use ``abfss://container@account.dfs.core.windows.net/...``.
         format (str): File format.  One of ``"parquet"``, ``"csv"``,
-            ``"delta"``.  Defaults to ``"parquet"``.
+            ``"excel"``, ``"delta"``.  Defaults to ``"parquet"``.
         target (str): Name of the target column in the dataset.
         feature_columns (list[str] | None): Explicit list of feature columns
             to use.  When ``None`` (default), all columns except ``target``
@@ -58,6 +58,15 @@ class DataConfig(BaseModel):
             for temporal splitting.  Not included in features.
         nrows (int | None): If set, only the first ``nrows`` rows are loaded.
             Use during local development only — never set this in production.
+        sheet_name (str | int | list[str | int] | None): Only used when
+            ``format="excel"``; ignored otherwise.  A single sheet name/index
+            reads that one sheet.  A list of names/indices reads each and
+            vertically concatenates them into one DataFrame — every sheet in
+            the list must have identical columns, or loading raises a clear
+            error rather than silently producing NaN-filled columns.
+            ``None`` (default) reads the first sheet, matching how
+            ``format="parquet"``/``"csv"`` each read one dataset from one
+            path.
 
     Returns:
         DataConfig: Validated data specification.
@@ -71,11 +80,12 @@ class DataConfig(BaseModel):
     feature_columns: list[str] | None = None
     date_column: str | None = None
     nrows: int | None = None
+    sheet_name: str | int | list[str | int] | None = None
 
     @field_validator("format")
     @classmethod
     def valid_format(cls, v: str) -> str:
-        allowed = {"parquet", "csv", "delta"}
+        allowed = {"parquet", "csv", "excel", "delta"}
         if v not in allowed:
             raise ValueError(f"format must be one of {allowed}, got {v!r}")
         return v

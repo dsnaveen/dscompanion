@@ -538,6 +538,8 @@ class PipelineRunner:
             elif fmt == "csv":
                 nrows = cfg.data.nrows
                 df = pd.read_csv(path, nrows=nrows)
+            elif fmt == "excel":
+                df = self._load_excel(path, cfg.data.sheet_name)
             elif fmt == "delta":
                 df = self._load_delta(path)
             else:
@@ -545,7 +547,7 @@ class PipelineRunner:
         except Exception as exc:
             raise RuntimeError(f"Failed to load data from {path!r}: {exc}") from exc
 
-        # Apply nrows limit for parquet/delta (CSV handles it in read_csv)
+        # Apply nrows limit for parquet/excel/delta (CSV handles it in read_csv)
         if cfg.data.nrows and fmt != "csv":
             df = df.head(cfg.data.nrows)
 
@@ -566,6 +568,42 @@ class PipelineRunner:
             df = df[sorted(keep)]
 
         return df
+
+    def _load_excel(
+        self, path: str, sheet_name: str | int | list[str | int] | None
+    ) -> pd.DataFrame:
+        """Load one Excel file, optionally combining several named/indexed sheets.
+
+        Args:
+            path (str): Path to the ``.xlsx``/``.xls`` file.
+            sheet_name (str | int | list[str | int] | None): A single sheet
+                reads directly; a list reads each sheet and vertically
+                concatenates them (every sheet must have identical columns);
+                ``None`` reads the first sheet (index ``0``), not every sheet
+                in the workbook — matching every other ``format`` here
+                reading exactly one dataset from one ``path``.
+
+        Returns:
+            pd.DataFrame: The loaded (and, for a list of sheets, concatenated)
+            data.
+
+        Raises:
+            ValueError: If a list of sheets is given and their column sets
+                don't all match.
+        """
+        result = pd.read_excel(path, sheet_name=0 if sheet_name is None else sheet_name)
+        if isinstance(result, dict):
+            frames = list(result.items())
+            first_name, first_df = frames[0]
+            for name, df in frames[1:]:
+                if set(df.columns) != set(first_df.columns):
+                    raise ValueError(
+                        f"sheet_name list requires identical columns across sheets — "
+                        f"sheet {name!r} has columns {sorted(df.columns)}, but sheet "
+                        f"{first_name!r} has {sorted(first_df.columns)}."
+                    )
+            return pd.concat([df for _, df in frames], ignore_index=True)
+        return result
 
     def _load_delta(self, path: str) -> pd.DataFrame:
         try:
