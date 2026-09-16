@@ -525,18 +525,19 @@ class PipelineRunner:
 
     def _load_data(self) -> pd.DataFrame:
         cfg = self.config
-        df = load_raw_data(cfg.data.path, cfg.data.format, cfg.data.sheet_name)
-
-        # Dev-only row subsampling — random, not "first N", so a small sample stays
-        # representative rather than biased toward however the source file is
-        # ordered. Seeded via settings.random_state for reproducibility. Applied
-        # uniformly across every format (CSV used to take a native, sequential
-        # read_csv(nrows=...) shortcut that avoided loading the full file — traded
-        # away here for consistent random-sampling behavior across all formats).
-        if cfg.data.nrows:
-            df = df.sample(n=min(cfg.data.nrows, len(df)), random_state=settings.random_state)
-        elif cfg.data.fraction_rows:
-            df = df.sample(frac=cfg.data.fraction_rows, random_state=settings.random_state)
+        # Dev-only row subsampling (random, not "first N") is applied inside
+        # load_raw_data() itself, not here — for format="delta" it's pushed
+        # into Spark before .toPandas() to actually reduce driver memory
+        # pressure, rather than collecting the full table first and
+        # discarding most of it afterward; for other formats it's applied
+        # post-load, same as before.
+        df = load_raw_data(
+            cfg.data.path,
+            cfg.data.format,
+            cfg.data.sheet_name,
+            nrows=cfg.data.nrows,
+            fraction_rows=cfg.data.fraction_rows,
+        )
 
         if cfg.data.target not in df.columns:
             raise RuntimeError(
