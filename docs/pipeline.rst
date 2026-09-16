@@ -14,8 +14,12 @@ Stage numbers below match the ``[N/13]`` log lines emitted at INFO level during 
      - What happens / how to configure it
    * - 1
      - Loading data
-     - Reads ``data.path`` (parquet/csv/excel/delta) via ``DataConfig``. ``data.nrows`` caps
-       row count for dev iteration.
+     - Reads ``data.path`` (parquet/csv/excel/delta) via ``DataConfig``. ``data.nrows``/
+       ``data.fraction_rows`` cap row count for dev iteration — random, seeded, applied before
+       loading (not after) for ``format="delta"`` (always) and ``format="parquet"`` with
+       ``read_via_spark=True`` (pushed into Spark) or ``row_group_sample=True`` (pushed into a
+       Spark-free ``pyarrow`` row-group read), so a huge source doesn't need to be fully
+       collected to the driver first just to keep a small sample of it.
    * - 2
      - Splitting data
      - ``DataSplitter`` builds the train/val/test/OOT partitions per ``split.method``

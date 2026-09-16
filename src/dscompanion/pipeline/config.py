@@ -81,6 +81,25 @@ class DataConfig(BaseModel):
             ``None`` (default) reads the first sheet, matching how
             ``format="parquet"``/``"csv"`` each read one dataset from one
             path.
+        read_via_spark (bool): ``format="parquet"`` only. When ``True``,
+            reads via an active Spark session (``spark.read.parquet(path)``)
+            instead of ``pd.read_parquet(path)``, and pushes ``nrows``/
+            ``fraction_rows`` sampling into Spark *before* ``.toPandas()`` —
+            the same driver-memory-saving approach ``format="delta"``
+            always uses. Requires an active ``SparkSession``; raises if
+            none is found. Mutually exclusive with ``row_group_sample``.
+            Defaults to ``False`` (plain pandas load, unchanged behavior).
+        row_group_sample (bool): ``format="parquet"`` only. When ``True``
+            and ``nrows``/``fraction_rows`` is set, samples at the parquet
+            row-group level via ``pyarrow`` — reading only the footer
+            metadata plus a randomly-selected subset of row groups (across
+            however many files the source has, for a partitioned
+            directory), rather than the full dataset. No Spark session
+            needed, but coarser than genuinely uniform row-level sampling:
+            savings and sample quality both depend on how many row
+            groups/files the source actually has — a single file with few
+            row groups sees little benefit. Mutually exclusive with
+            ``read_via_spark``. Defaults to ``False``.
 
     Returns:
         DataConfig: Validated data specification.
@@ -97,6 +116,8 @@ class DataConfig(BaseModel):
     nrows: int | None = None
     fraction_rows: float | None = None
     sheet_name: str | int | list[str | int] | None = None
+    read_via_spark: bool = False
+    row_group_sample: bool = False
 
     @field_validator("format")
     @classmethod
@@ -136,6 +157,22 @@ class DataConfig(BaseModel):
                 raise ValueError(
                     f"ignore_columns cannot include the target or date_column: {conflict}"
                 )
+        return self
+
+    @model_validator(mode="after")
+    def valid_parquet_sampling_backend(self) -> "DataConfig":
+        if self.read_via_spark and self.row_group_sample:
+            raise ValueError(
+                "Set at most one of read_via_spark or row_group_sample, not both — "
+                "they are mutually exclusive strategies for reducing driver memory "
+                "pressure when reading format='parquet'."
+            )
+        if (self.read_via_spark or self.row_group_sample) and self.format != "parquet":
+            field = "read_via_spark" if self.read_via_spark else "row_group_sample"
+            raise ValueError(
+                f"{field} is only meaningful for format='parquet' (format='delta' already "
+                f"always reads via Spark; got format={self.format!r})."
+            )
         return self
 
 

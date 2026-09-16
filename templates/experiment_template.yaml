@@ -42,6 +42,18 @@ data:
   # sheet_name: "Jan"                # format=excel only: one sheet name/index, or a list to
   #                                  # vertically concat several (all must have identical columns).
   #                                  # default (omitted) = first sheet only, not every sheet.
+  # read_via_spark: false            # format=parquet only, with nrows/fraction_rows set — reads via an
+  #                                  # active Spark session and pushes sampling into Spark before
+  #                                  # .toPandas(), instead of collecting the full file(s) to the driver
+  #                                  # first (same memory-saving approach format=delta always uses).
+  #                                  # Requires an active SparkSession. Mutually exclusive with
+  #                                  # row_group_sample below.
+  # row_group_sample: false          # format=parquet only, with nrows/fraction_rows set — samples at the
+  #                                  # parquet row-group level via pyarrow instead, no Spark session
+  #                                  # needed. Coarser than read_via_spark's row-level sampling — savings
+  #                                  # depend on how many row groups/files the source actually has (a
+  #                                  # single small file with few row groups sees little benefit).
+  #                                  # Mutually exclusive with read_via_spark above.
 
 # ── Split ─────────────────────────────────────────────────────────────────────
 split:

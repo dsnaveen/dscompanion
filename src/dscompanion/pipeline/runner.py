@@ -526,17 +526,21 @@ class PipelineRunner:
     def _load_data(self) -> pd.DataFrame:
         cfg = self.config
         # Dev-only row subsampling (random, not "first N") is applied inside
-        # load_raw_data() itself, not here — for format="delta" it's pushed
-        # into Spark before .toPandas() to actually reduce driver memory
-        # pressure, rather than collecting the full table first and
-        # discarding most of it afterward; for other formats it's applied
-        # post-load, same as before.
+        # load_raw_data() itself, not here — for format="delta" (always) or
+        # format="parquet" with read_via_spark=True, it's pushed into Spark
+        # before .toPandas(); with row_group_sample=True, it's pushed into a
+        # pyarrow row-group-level read instead — both to actually reduce
+        # driver memory pressure, rather than collecting the full dataset
+        # first and discarding most of it afterward. For every other case,
+        # it's applied post-load, same as before.
         df = load_raw_data(
             cfg.data.path,
             cfg.data.format,
             cfg.data.sheet_name,
             nrows=cfg.data.nrows,
             fraction_rows=cfg.data.fraction_rows,
+            read_via_spark=cfg.data.read_via_spark,
+            row_group_sample=cfg.data.row_group_sample,
         )
 
         if cfg.data.target not in df.columns:

@@ -117,6 +117,31 @@ class TestPipelineConfigValidation:
         with pytest.raises(ValidationError, match="mutually exclusive"):
             DataConfig(path="dummy.parquet", target="y", nrows=10, fraction_rows=0.5)
 
+    def test_read_via_spark_and_row_group_sample_together_raises(self):
+        with pytest.raises(ValidationError, match="mutually exclusive"):
+            DataConfig(
+                path="dummy.parquet",
+                target="y",
+                read_via_spark=True,
+                row_group_sample=True,
+            )
+
+    def test_read_via_spark_with_non_parquet_format_raises(self):
+        with pytest.raises(ValidationError, match="only meaningful for format='parquet'"):
+            DataConfig(path="dummy.csv", target="y", format="csv", read_via_spark=True)
+
+    def test_row_group_sample_with_non_parquet_format_raises(self):
+        with pytest.raises(ValidationError, match="only meaningful for format='parquet'"):
+            DataConfig(path="dummy.csv", target="y", format="csv", row_group_sample=True)
+
+    def test_read_via_spark_with_parquet_format_constructs(self):
+        cfg = DataConfig(path="dummy.parquet", target="y", read_via_spark=True)
+        assert cfg.read_via_spark is True
+
+    def test_row_group_sample_with_parquet_format_constructs(self):
+        cfg = DataConfig(path="dummy.parquet", target="y", row_group_sample=True)
+        assert cfg.row_group_sample is True
+
     def test_invalid_split_method_raises(self):
         with pytest.raises(ValidationError, match="method must be one of"):
             SplitConfig(method="bogus")
