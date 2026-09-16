@@ -4,17 +4,20 @@ from __future__ import annotations
 
 import logging
 import time
-import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import Any
-from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 from dscompanion.config import settings
 from dscompanion.pipeline.config import PipelineConfig
+from dscompanion.pipeline.loaders import load_raw_data
+from dscompanion.pipeline.run_utils import (
+    attach_run_log_handler,
+    detach_run_log_handler,
+    generate_run_id_and_dir,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -172,37 +175,22 @@ class PipelineRunner:
     def _generate_run_id_and_dir(self, output_dir: str | Path) -> tuple[str, Path]:
         """Generate a fresh, collision-safe run id and its output directory.
 
-        Uses ``yyyymmdd_hhmmss`` rather than a random uuid — sortable
-        chronologically in a Workspace file browser, and directly readable
-        as "when did this run happen" without opening it. Timestamped in
-        ``settings.run_id_timezone`` (defaults to IST) rather than the
-        running machine's local time, so run folder names read consistently
-        whether the pipeline runs on a local laptop or a UTC-default
-        cluster. Only appends a short random disambiguating suffix in the
-        rare case two runs start in the same second against the same
-        ``output_dir`` (checked via directory existence) — the common case
-        stays a clean, readable id.
+        Thin wrapper around ``dscompanion.pipeline.run_utils.generate_run_id_and_dir``
+        (shared with ``ScoringRunner``) — kept as an instance method for
+        backward compatibility with existing callers/tests.
 
         Args:
             output_dir (str | Path): Root directory this run's output lives
                 under (``cfg.reporting.output_dir``).
 
         Returns:
-            tuple[str, Path]: ``(run_id, run_dir)`` — ``run_dir`` is always
-            ``Path(output_dir) / run_id`` and is guaranteed not to already
-            exist at the time this returns.
+            tuple[str, Path]: ``(run_id, run_dir)``.
 
         Raises:
             ZoneInfoNotFoundError: If ``settings.run_id_timezone`` is not a
                 valid IANA timezone name.
         """
-        output_dir = Path(output_dir)
-        run_id = datetime.now(ZoneInfo(settings.run_id_timezone)).strftime("%Y%m%d_%H%M%S")
-        run_dir = output_dir / run_id
-        if run_dir.exists():
-            run_id = f"{run_id}_{uuid.uuid4().hex[:4]}"
-            run_dir = output_dir / run_id
-        return run_id, run_dir
+        return generate_run_id_and_dir(output_dir)
 
     def run(self) -> PipelineRunResult:
         """Execute all pipeline stages and return a fully populated ``PipelineRunResult``.
@@ -269,19 +257,10 @@ class PipelineRunner:
     def _attach_run_log_handler(self, log_path: Path) -> logging.Handler:
         """Attach a ``FileHandler`` to the ``dscompanion`` logger for the duration of a run.
 
-        Also guarantees the ``dscompanion`` logger's effective level is INFO for
-        the run's duration — confirmed on Databricks 2026-09-10 that a
-        notebook host can pre-install its own root logger handler *before*
-        ``import dscompanion`` runs, which silently makes
-        ``dscompanion/__init__.py``'s own ``logging.basicConfig(level=INFO)`` a
-        no-op (per Python's own docs: ``basicConfig()`` does nothing if the
-        root logger already has handlers). Left unguarded, ``dscompanion``'s
-        effective level then falls back to root's default ``WARNING``, so
-        every ``logger.info(...)`` call in ``dscompanion`` is filtered out
-        *before a ``LogRecord`` is even created* — no handler, however
-        attached, can capture what was never created. Only raises the
-        level when it's currently coarser than INFO; never narrows an
-        existing, more verbose setting (e.g. a caller-configured DEBUG).
+        Thin wrapper around ``dscompanion.pipeline.run_utils.attach_run_log_handler``
+        (shared with ``ScoringRunner``) — stores the previous level on
+        ``self._prev_dscompanion_level`` so ``_detach_run_log_handler`` keeps
+        its existing single-argument signature.
 
         Args:
             log_path (Path): Destination file — parent directory must
@@ -292,16 +271,7 @@ class PipelineRunner:
             logging.Handler: The attached handler — pass to
             ``_detach_run_log_handler`` when the run finishes.
         """
-        handler = logging.FileHandler(log_path)
-        handler.setLevel(logging.INFO)
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s  %(levelname)-8s  %(name)s  %(message)s")
-        )
-        dscompanion_logger = logging.getLogger("dscompanion")
-        dscompanion_logger.addHandler(handler)
-        self._prev_dscompanion_level = dscompanion_logger.level
-        if dscompanion_logger.getEffectiveLevel() > logging.INFO:
-            dscompanion_logger.setLevel(logging.INFO)
+        handler, self._prev_dscompanion_level = attach_run_log_handler(log_path)
         return handler
 
     def _detach_run_log_handler(self, handler: logging.Handler) -> None:
@@ -317,10 +287,7 @@ class PipelineRunner:
         Returns:
             None
         """
-        dscompanion_logger = logging.getLogger("dscompanion")
-        dscompanion_logger.removeHandler(handler)
-        dscompanion_logger.setLevel(self._prev_dscompanion_level)
-        handler.close()
+        detach_run_log_handler(handler, self._prev_dscompanion_level)
 
     def _execute_stages(self, cfg: PipelineConfig, t0: float, log_path: Path) -> PipelineRunResult:
         """Run stages 1-13 and assemble the final ``PipelineRunResult``.
@@ -550,22 +517,7 @@ class PipelineRunner:
 
     def _load_data(self) -> pd.DataFrame:
         cfg = self.config
-        path = cfg.data.path
-        fmt = cfg.data.format
-
-        try:
-            if fmt == "parquet":
-                df = pd.read_parquet(path)
-            elif fmt == "csv":
-                df = pd.read_csv(path)
-            elif fmt == "excel":
-                df = self._load_excel(path, cfg.data.sheet_name)
-            elif fmt == "delta":
-                df = self._load_delta(path)
-            else:
-                raise ValueError(f"Unsupported format: {fmt!r}")
-        except Exception as exc:
-            raise RuntimeError(f"Failed to load data from {path!r}: {exc}") from exc
+        df = load_raw_data(cfg.data.path, cfg.data.format, cfg.data.sheet_name)
 
         # Dev-only row subsampling — random, not "first N", so a small sample stays
         # representative rather than biased toward however the source file is
@@ -600,55 +552,6 @@ class PipelineRunner:
             df = df.drop(columns=cfg.data.ignore_columns)
 
         return df
-
-    def _load_excel(
-        self, path: str, sheet_name: str | int | list[str | int] | None
-    ) -> pd.DataFrame:
-        """Load one Excel file, optionally combining several named/indexed sheets.
-
-        Args:
-            path (str): Path to the ``.xlsx``/``.xls`` file.
-            sheet_name (str | int | list[str | int] | None): A single sheet
-                reads directly; a list reads each sheet and vertically
-                concatenates them (every sheet must have identical columns);
-                ``None`` reads the first sheet (index ``0``), not every sheet
-                in the workbook — matching every other ``format`` here
-                reading exactly one dataset from one ``path``.
-
-        Returns:
-            pd.DataFrame: The loaded (and, for a list of sheets, concatenated)
-            data.
-
-        Raises:
-            ValueError: If a list of sheets is given and their column sets
-                don't all match.
-        """
-        result = pd.read_excel(path, sheet_name=0 if sheet_name is None else sheet_name)
-        if isinstance(result, dict):
-            frames = list(result.items())
-            first_name, first_df = frames[0]
-            for name, df in frames[1:]:
-                if set(df.columns) != set(first_df.columns):
-                    raise ValueError(
-                        f"sheet_name list requires identical columns across sheets — "
-                        f"sheet {name!r} has columns {sorted(df.columns)}, but sheet "
-                        f"{first_name!r} has {sorted(first_df.columns)}."
-                    )
-            return pd.concat([df for _, df in frames], ignore_index=True)
-        return result
-
-    def _load_delta(self, path: str) -> pd.DataFrame:
-        try:
-            from pyspark.sql import SparkSession
-
-            spark = SparkSession.getActiveSession()
-            if spark is None:
-                raise RuntimeError("No active SparkSession found.")
-            return spark.read.format("delta").load(path).toPandas()
-        except ImportError:
-            raise RuntimeError(
-                "format='delta' requires PySpark. " "Use format='parquet' for local development."
-            )
 
     # ── Splitting ─────────────────────────────────────────────────────────────
 

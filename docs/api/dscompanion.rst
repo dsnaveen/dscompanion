@@ -33,6 +33,9 @@ pages.
    PipelineRunner
    PipelineRunResult
    ScoringPipeline
+   ScoringConfig
+   ScoringRunner
+   ScoringRunResult
    SyntheticDataGenerator
 
 ``ml.settings`` is also re-exported, but it's a singleton *instance* of

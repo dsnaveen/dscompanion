@@ -1,9 +1,11 @@
 dscompanion.scoring
 ====================
 
-:class:`dscompanion.ScoringPipeline` is documented in the :doc:`top-level API reference
-<../api/dscompanion>` (it's the sub-package's only public class, and is re-exported at the
-top level).
+Every public class here — :class:`dscompanion.ScoringPipeline`, :class:`dscompanion.ScoringConfig`,
+:class:`dscompanion.ScoringRunner`, :class:`dscompanion.ScoringRunResult` — is documented in
+the :doc:`top-level API reference <../api/dscompanion>` (all four are re-exported at the top
+level; ``ScoringDataConfig``/``ScoringOutputConfig``, ``ScoringConfig``'s nested sections, are
+not — see ``ScoringConfig`` itself for their fields).
 
 ``ScoringPipeline`` bundles a trained model with its fitted preprocessing chain
 (``feature_pipeline``, ``selection_pipeline``, and optionally a ``calibrator``) so it can
@@ -16,3 +18,10 @@ batch and returns a DataFrame; ``.predict_one(record)`` scores a single dict rec
 natural binding for a future single-request API endpoint; ``.compute_drift(df)`` checks the
 batch's prediction-score distribution against the training-time reference via Population
 Stability Index.
+
+``ScoringConfig``/``ScoringRunner`` are the YAML-driven counterpart to
+``PipelineConfig``/``PipelineRunner``, for a recurring batch scoring job — see
+:doc:`../quickstart`'s "Batch scoring via YAML" section and ``templates/scoring_template.yaml``.
+``ScoringRunner.from_yaml(path).run()`` loads the input data and a ``ScoringPipeline`` bundle,
+scores it, and writes the result into a timestamped ``<output.output_dir>/<run_id>/`` folder —
+the same IST-timestamped, audited run-folder convention ``PipelineRunner`` uses for training.

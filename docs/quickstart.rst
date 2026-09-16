@@ -134,3 +134,23 @@ Load the bundle in any later process and call ``predict`` on new, raw, unseen da
 ``predict`` validates ``new_df``'s schema against what training actually saw and raises a
 clear ``ValueError`` naming any missing or dtype-incompatible column — never silently
 produces predictions from a mismatched schema.
+
+Batch scoring via YAML
+------------------------
+
+For a recurring batch scoring job (e.g. a scheduled Databricks notebook/job), copy
+``templates/scoring_template.yaml`` instead of writing the Python above by hand — it gives you
+the same versioned, reviewable, re-runnable config file the training side has, plus an
+IST-timestamped, audited output run folder (scored file, a copy of the resolved config, a run
+log, and an optional drift report), mirroring :class:`~dscompanion.PipelineRunner`'s run-folder
+convention:
+
+.. code-block:: python
+
+   from dscompanion.scoring import ScoringRunner
+
+   result = ScoringRunner.from_yaml("scoring/credit_risk_v1_scoring.yaml").run()
+
+   print(result.scored_df)          # same shape as ScoringPipeline.predict()'s return value
+   print(result.output_path)        # <output.output_dir>/<run_id>/scored.parquet
+   print(result.drift_report)       # populated only when check_drift: true in the YAML

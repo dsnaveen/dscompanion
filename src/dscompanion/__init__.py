@@ -17,7 +17,7 @@ from dscompanion.features import FeatureProcessingPipeline
 from dscompanion.leaderboard import Leaderboard
 from dscompanion.models import ModelFactory
 from dscompanion.pipeline import PipelineConfig, PipelineRunner, PipelineRunResult
-from dscompanion.scoring import ScoringPipeline
+from dscompanion.scoring import ScoringConfig, ScoringPipeline, ScoringRunner, ScoringRunResult
 from dscompanion.selection import FeatureSelectionPipeline
 from dscompanion.split import DataSplit, DataSplitter
 from dscompanion.targets import ImbalanceHandler, TargetBinariser
@@ -65,6 +65,9 @@ __all__ = [
     "PipelineRunResult",
     # Scoring
     "ScoringPipeline",
+    "ScoringConfig",
+    "ScoringRunner",
+    "ScoringRunResult",
     # Utils
     "SyntheticDataGenerator",
 ]

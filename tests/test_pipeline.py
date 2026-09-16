@@ -407,17 +407,17 @@ class TestGenerateRunIdAndDir:
         assert settings.run_id_timezone == "Asia/Kolkata"
 
     def test_uses_configured_timezone(self, tmp_path, monkeypatch):
-        import dscompanion.pipeline.runner as runner_module
+        import dscompanion.pipeline.run_utils as run_utils_module
         from dscompanion.config import settings
 
         seen: dict = {}
-        real_zoneinfo = runner_module.ZoneInfo
+        real_zoneinfo = run_utils_module.ZoneInfo
 
         def spy_zoneinfo(name):
             seen["name"] = name
             return real_zoneinfo(name)
 
-        monkeypatch.setattr(runner_module, "ZoneInfo", spy_zoneinfo)
+        monkeypatch.setattr(run_utils_module, "ZoneInfo", spy_zoneinfo)
         monkeypatch.setattr(settings, "run_id_timezone", "UTC")
 
         runner = PipelineRunner(_minimal_config())

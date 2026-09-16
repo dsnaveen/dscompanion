@@ -1,0 +1,52 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# dscompanion Scoring Job Config Template
+# ─────────────────────────────────────────────────────────────────────────────
+# REQUIRED fields are marked with  ← REQUIRED
+# Everything else has a safe default and can be left as-is or deleted.
+# Pass this file to ScoringRunner.from_yaml("path/to/this.yaml").run()
+#
+# Scores new, unseen data against an already-trained model — see
+# templates/experiment_template.yaml for training a model in the first place.
+# Every key below is a real ScoringConfig field — ScoringConfig uses
+# extra="forbid", so any key NOT in its schema raises a ValidationError before
+# scoring runs. If a from_yaml() load ever fails with "Extra inputs are not
+# permitted", a field here has drifted from dscompanion/scoring/config.py and
+# should be fixed here, not worked around by deleting the validation.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: credit_risk_baseline_v1_scoring   # ← REQUIRED: scoring job name (used as the run name)
+version: "1.0"
+
+# ← REQUIRED: path to a ScoringPipeline bundle saved by a prior training run —
+# PipelineRunner's result.scoring_pipeline_path, or the equivalent
+# <output_dir>/<run_id>/model/<name>_v<version>_scoring_pipeline.joblib file.
+scoring_pipeline_path: ./reports/20260101_000000/model/credit_risk_baseline_v1_v1.0_scoring_pipeline.joblib
+
+# ── Data ─────────────────────────────────────────────────────────────────────
+# The new, unseen data to score. No target/feature_columns/ignore_columns here —
+# ScoringPipeline already knows, from training, exactly which raw columns it
+# needs, and validates the schema automatically before scoring.
+data:
+  path: abfss://container@account.dfs.core.windows.net/features/new_applications.parquet  # ← REQUIRED
+  format: parquet                    # parquet | csv | excel | delta
+  # sheet_name: "Jan"                # format=excel only: one sheet name/index, or a list to
+  #                                  # vertically concat several (all must have identical columns).
+  #                                  # default (omitted) = first sheet only, not every sheet.
+
+# id_columns:                        # optional: raw columns carried through to the scored output
+#   - application_id                 # unchanged (e.g. a customer/account identifier), joined back
+#                                    # by row — need not have been a feature at training time.
+
+check_drift: false                   # set true to also compute Population Stability Index between
+                                     # this batch's prediction-score distribution and the
+                                     # training-time reference — written as drift_report.csv
+                                     # alongside the scored output.
+
+# ── Output ────────────────────────────────────────────────────────────────────
+output:
+  output_dir: ./scoring_runs         # a timestamped <output_dir>/<run_id>/ folder is created per
+                                     # run (same IST-timestamped convention as PipelineRunner's
+                                     # training runs) — containing the scored file, a copy of this
+                                     # resolved config, this run's log, and drift_report.csv when
+                                     # check_drift=true.
+  format: parquet                    # parquet | csv | excel — format of the scored output file
