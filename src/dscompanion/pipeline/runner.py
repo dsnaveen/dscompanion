@@ -6,8 +6,10 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -167,10 +169,14 @@ class PipelineRunner:
 
         Uses ``yyyymmdd_hhmmss`` rather than a random uuid — sortable
         chronologically in a Workspace file browser, and directly readable
-        as "when did this run happen" without opening it. Only appends a
-        short random disambiguating suffix in the rare case two runs start
-        in the same second against the same ``output_dir`` (checked via
-        directory existence) — the common case stays a clean, readable id.
+        as "when did this run happen" without opening it. Timestamped in
+        ``settings.run_id_timezone`` (defaults to IST) rather than the
+        running machine's local time, so run folder names read consistently
+        whether the pipeline runs on a local laptop or a UTC-default
+        cluster. Only appends a short random disambiguating suffix in the
+        rare case two runs start in the same second against the same
+        ``output_dir`` (checked via directory existence) — the common case
+        stays a clean, readable id.
 
         Args:
             output_dir (str | Path): Root directory this run's output lives
@@ -180,9 +186,13 @@ class PipelineRunner:
             tuple[str, Path]: ``(run_id, run_dir)`` — ``run_dir`` is always
             ``Path(output_dir) / run_id`` and is guaranteed not to already
             exist at the time this returns.
+
+        Raises:
+            ZoneInfoNotFoundError: If ``settings.run_id_timezone`` is not a
+                valid IANA timezone name.
         """
         output_dir = Path(output_dir)
-        run_id = time.strftime("%Y%m%d_%H%M%S")
+        run_id = datetime.now(ZoneInfo(settings.run_id_timezone)).strftime("%Y%m%d_%H%M%S")
         run_dir = output_dir / run_id
         if run_dir.exists():
             run_id = f"{run_id}_{uuid.uuid4().hex[:4]}"

@@ -288,4 +288,8 @@ reporting:
 #   default_cv_folds = 5
 #   default_test_size / default_val_size = 0.2 / 0.1  # legacy duplicates of split.test_size / split.val_size
 #   random_state = 42                             # seed used wherever dscompanion code accepts random_state
+#
+# run identity (PipelineRunner._generate_run_id_and_dir)
+#   run_id_timezone = "Asia/Kolkata"               # IANA tz for the run_id/run_dir timestamp (default: IST) —
+#                                                  # override via env var DSCOMPANION_RUN_ID_TIMEZONE
 # ═══════════════════════════════════════════════════════════════════════════

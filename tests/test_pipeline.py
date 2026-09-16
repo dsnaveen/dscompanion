@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from zoneinfo import ZoneInfoNotFoundError
 
 import numpy as np
 import pandas as pd
@@ -399,6 +400,37 @@ class TestGenerateRunIdAndDir:
         assert run_id_2 != run_id
         assert run_id_2.startswith(run_id + "_")
         assert not run_dir_2.exists()
+
+    def test_defaults_to_ist(self):
+        from dscompanion.config import settings
+
+        assert settings.run_id_timezone == "Asia/Kolkata"
+
+    def test_uses_configured_timezone(self, tmp_path, monkeypatch):
+        import dscompanion.pipeline.runner as runner_module
+        from dscompanion.config import settings
+
+        seen: dict = {}
+        real_zoneinfo = runner_module.ZoneInfo
+
+        def spy_zoneinfo(name):
+            seen["name"] = name
+            return real_zoneinfo(name)
+
+        monkeypatch.setattr(runner_module, "ZoneInfo", spy_zoneinfo)
+        monkeypatch.setattr(settings, "run_id_timezone", "UTC")
+
+        runner = PipelineRunner(_minimal_config())
+        runner._generate_run_id_and_dir(tmp_path)
+        assert seen["name"] == "UTC"
+
+    def test_unknown_timezone_raises(self, tmp_path, monkeypatch):
+        from dscompanion.config import settings
+
+        monkeypatch.setattr(settings, "run_id_timezone", "Not/A_Real_Zone")
+        runner = PipelineRunner(_minimal_config())
+        with pytest.raises(ZoneInfoNotFoundError):
+            runner._generate_run_id_and_dir(tmp_path)
 
 
 # ---------------------------------------------------------------------------
