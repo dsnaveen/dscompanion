@@ -1781,16 +1781,16 @@ class TestRunOutputOrganization:
         assert "Loading data" in content
         assert "Pipeline complete" in content
 
-    def test_model_path_is_populated_and_loadable(self, e2e_result):
-        from dscompanion.models.base import BaseDSCompanionModel
+    def test_scoring_pipeline_path_is_populated_and_loadable(self, e2e_result):
+        from dscompanion.scoring import ScoringPipeline
 
-        assert e2e_result.model_path is not None
-        assert Path(e2e_result.model_path).is_file()
-        loaded = BaseDSCompanionModel.load(e2e_result.model_path)
-        assert type(loaded) is type(e2e_result.model)
+        assert e2e_result.scoring_pipeline_path is not None
+        assert Path(e2e_result.scoring_pipeline_path).is_file()
+        loaded = ScoringPipeline.load(e2e_result.scoring_pipeline_path)
+        assert type(loaded.model) is type(e2e_result.model)
 
-    def test_model_path_is_inside_run_dir_model_subdirectory(self, e2e_result):
-        assert Path(e2e_result.model_path).parent == Path(e2e_result.run_dir) / "model"
+    def test_scoring_pipeline_path_is_inside_run_dir_model_subdirectory(self, e2e_result):
+        assert Path(e2e_result.scoring_pipeline_path).parent == Path(e2e_result.run_dir) / "model"
 
     def test_excel_report_path_is_populated_and_non_empty(self, e2e_result):
         assert e2e_result.excel_report_path is not None

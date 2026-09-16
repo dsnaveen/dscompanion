@@ -66,13 +66,18 @@ class PipelineRunResult:
             log line the ``dscompanion`` logger emitted during this run, captured
             via a temporary ``logging.FileHandler`` attached for the
             duration of ``run()`` and removed afterward (even on failure).
-        model_path (Path | None): ``<run_dir>/model/<name>_v<version>_model.joblib``
-            — the trained (and tuned/calibrated) model, saved automatically
-            via ``model.save()``. ``None`` only if the save itself failed
-            (logged as a non-fatal warning; the rest of the run still
-            completes) — check ``model_path is not None`` before relying on
-            it, don't assume ``model`` was written to disk just because the
-            run succeeded.
+        scoring_pipeline_path (Path | None):
+            ``<run_dir>/model/<name>_v<version>_scoring_pipeline.joblib`` —
+            a ``ScoringPipeline`` bundling the fitted ``feature_pipeline``,
+            ``selection_pipeline``, ``model``, and ``calibrator`` (see
+            ``dscompanion.scoring.ScoringPipeline``), saved automatically.
+            This is what a later process should load
+            (``ScoringPipeline.load(path)``) to correctly score new raw
+            data — the bare ``model`` alone expects already-preprocessed
+            input and cannot be applied to raw data on its own. ``None``
+            only if the save itself failed (logged as a non-fatal warning;
+            the rest of the run still completes) — check
+            ``scoring_pipeline_path is not None`` before relying on it.
         report_path (Path | None): Path to the written HTML model report, or
             ``None`` when ``reporting.html_report=False`` (the default) —
             ``model_card.to_excel(...)``/``.to_html(...)``/``.to_json(...)`` remain
@@ -108,7 +113,7 @@ class PipelineRunResult:
     run_id: str | None = None
     run_dir: Path | None = None
     log_path: Path | None = None
-    model_path: Path | None = None
+    scoring_pipeline_path: Path | None = None
     report_path: Path | None = None
     excel_report_path: Path | None = None
     config_deviations: list[dict[str, Any]] = field(default_factory=list)
@@ -414,9 +419,14 @@ class PipelineRunner:
         logger.info("[11/13] Calibration")
         calibrator = self._calibrate(model, final_split)
 
-        # Save the trained model — non-fatal: a save failure shouldn't discard an
-        # otherwise-successful run's in-memory artifacts.
-        model_path = self._save_model(model)
+        # Build + save the scoring bundle — non-fatal: a save failure shouldn't
+        # discard an otherwise-successful run's in-memory artifacts.
+        psi_reference = self._compute_psi_reference(
+            model, calibrator, selected_split, cfg.model.task
+        )
+        scoring_pipeline_path = self._save_scoring_pipeline(
+            feat_pipeline, sel_pipeline, model, calibrator, raw_split.train_X, psi_reference
+        )
 
         # Stage 11 — SHAP
         explainer = None
@@ -478,7 +488,7 @@ class PipelineRunner:
             run_id=run_id,
             run_dir=self._run_dir,
             log_path=log_path,
-            model_path=model_path,
+            scoring_pipeline_path=scoring_pipeline_path,
             report_path=report_path,
             excel_report_path=excel_report_path,
             config_deviations=self._deviations,
@@ -965,8 +975,46 @@ class PipelineRunner:
 
     # ── Model persistence ────────────────────────────────────────────────────
 
-    def _save_model(self, model) -> Path | None:
-        """Save the trained model into ``<run_dir>/model/`` via ``model.save()``.
+    def _compute_psi_reference(self, model, calibrator, selected_split, task: str):
+        """Compute the training-set prediction score distribution for ``compute_drift``.
+
+        Uses ``selected_split.train_X`` (post feature-processing/selection,
+        *before* imbalance handling) rather than the final training split —
+        mirrors the same "real population, not synthetic" nuance already
+        applied to ``model._train_scores`` above, for the same reason: a
+        SMOTE/undersampled training population would give a distorted
+        drift baseline.
+
+        Args:
+            model: Fitted ``BaseDSCompanionModel``.
+            calibrator: Fitted ``Calibrator``, or ``None``.
+            selected_split: ``DataSplit`` after feature processing and
+                selection, before imbalance handling.
+            task (str): ``cfg.model.task``.
+
+        Returns:
+            pd.Series | None: Training-set score distribution (classification:
+            calibrated-if-present positive-class probability; regression:
+            predicted value), or ``None`` for ``task="clustering"`` or if
+            computing it raised (logged as a non-fatal warning).
+        """
+        if task not in ("classification", "regression"):
+            return None
+        try:
+            scoring_model = calibrator.wrap(model) if calibrator is not None else model
+            if task == "classification":
+                scores = scoring_model.predict_proba(selected_split.train_X)[:, 1]
+            else:
+                scores = scoring_model.predict(selected_split.train_X)
+            return pd.Series(scores)
+        except Exception as exc:
+            logger.warning("Could not compute PSI reference scores (non-fatal): %s", exc)
+            return None
+
+    def _save_scoring_pipeline(
+        self, feature_pipeline, selection_pipeline, model, calibrator, schema_df, psi_reference
+    ) -> Path | None:
+        """Bundle the fitted pipeline stages into a ``ScoringPipeline`` and save it.
 
         Non-fatal: a save failure is logged as a warning, not raised —
         matches ``_run_shap``/``_run_permutation_importance``'s existing
@@ -974,18 +1022,40 @@ class PipelineRunner:
         otherwise-successful run's in-memory artifacts.
 
         Args:
-            model: Fitted ``BaseDSCompanionModel`` to persist.
+            feature_pipeline: Fitted ``FeatureProcessingPipeline``.
+            selection_pipeline: Fitted ``FeatureSelectionPipeline``.
+            model: Fitted ``BaseDSCompanionModel``.
+            calibrator: Fitted ``Calibrator``, or ``None``.
+            schema_df (pd.DataFrame): Raw (pre-``feature_pipeline``) feature
+                matrix — becomes ``ScoringPipeline.schema_``.
+            psi_reference: Training-set score distribution, or ``None``.
 
         Returns:
-            Path | None: The resolved path the model was saved to, or
+            Path | None: The resolved path the bundle was saved to, or
             ``None`` if the save failed.
         """
+        from dscompanion.scoring import ScoringPipeline
+
         cfg = self.config
-        path = self._run_dir / "model" / f"{cfg.name}_v{cfg.version}_model.joblib"
+        path = self._run_dir / "model" / f"{cfg.name}_v{cfg.version}_scoring_pipeline.joblib"
         try:
-            return model.save(path)
+            id_column_candidates = list(cfg.data.ignore_columns or [])
+            if cfg.data.date_column:
+                id_column_candidates.append(cfg.data.date_column)
+            scoring_pipeline = ScoringPipeline.from_run(
+                feature_pipeline=feature_pipeline,
+                selection_pipeline=selection_pipeline,
+                model=model,
+                calibrator=calibrator,
+                schema_df=schema_df,
+                target_col=cfg.data.target,
+                task=cfg.model.task,
+                id_column_candidates=id_column_candidates,
+                psi_reference=psi_reference,
+            )
+            return scoring_pipeline.save(path)
         except Exception as exc:
-            logger.warning("Model save failed (non-fatal): %s", exc)
+            logger.warning("ScoringPipeline save failed (non-fatal): %s", exc)
             return None
 
     # ── SHAP ──────────────────────────────────────────────────────────────────

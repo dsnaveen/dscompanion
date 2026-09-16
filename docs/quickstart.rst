@@ -22,7 +22,7 @@ everything else has a production-safe default. See :doc:`pipeline` for what each
    print(result.metrics)                 # per-split metrics (train/val/test/oot)
    print(result.model)                   # fitted BaseDSCompanionModel subclass
    print(result.run_dir)                 # <reporting.output_dir>/<run_id>/ — this run's artifacts
-   print(result.model_path)              # trained model, auto-saved under run_dir/model/
+   print(result.scoring_pipeline_path)   # ScoringPipeline bundle, auto-saved under run_dir/model/
    print(result.excel_report_path)       # Excel model card, auto-written under run_dir/reports/
    print(result.report_path)             # HTML model card (only when reporting.html_report=True)
    print(result.run_id)                  # local tracking run ID — matches result.run_dir.name
@@ -104,3 +104,33 @@ Every stage is also usable directly, sklearn-style (``fit`` / ``transform`` /
 Both paths produce the same kind of artefacts; the YAML path additionally gives you a
 versioned, reviewable, re-runnable config file and wires every stage together with the
 config-deviation reporting described in :doc:`pipeline`.
+
+Scoring new data
+-----------------
+
+Training produces a ``ScoringPipeline`` bundle (``result.scoring_pipeline_path``) that
+carries the fitted feature/selection pipelines and model together — the bare ``model``
+alone expects already-preprocessed input and cannot be applied to raw data on its own.
+Load the bundle in any later process and call ``predict`` on new, raw, unseen data:
+
+.. code-block:: python
+
+   from dscompanion.scoring import ScoringPipeline
+   import pandas as pd
+
+   scoring_pipeline = ScoringPipeline.load(result.scoring_pipeline_path)
+
+   new_df = pd.read_parquet("data/credit_applications_2026_10.parquet")
+   scored = scoring_pipeline.predict(new_df, id_columns=["application_id"])
+   # columns: application_id, prediction, probability (classification only)
+
+   # Single-record scoring — the natural binding for a future real-time API call
+   one_result = scoring_pipeline.predict_one(new_df.iloc[0].to_dict())
+
+   # Optional: check whether this batch's prediction distribution has drifted
+   # from what training saw (Population Stability Index)
+   drift_report = scoring_pipeline.compute_drift(new_df)
+
+``predict`` validates ``new_df``'s schema against what training actually saw and raises a
+clear ``ValueError`` naming any missing or dtype-incompatible column — never silently
+produces predictions from a mismatched schema.

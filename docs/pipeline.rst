@@ -75,8 +75,10 @@ Stage numbers below match the ``[N/13]`` log lines emitted at INFO level during 
      - Model card + run logging
      - ``ModelCard.generate()`` assembles every prior stage's output into one report.
        A single ``reporting.output_dir`` is declared once; ``PipelineRunner`` organizes
-       everything else itself under ``<output_dir>/<run_id>/`` — ``model/`` (the trained
-       model, auto-saved via ``model.save()``), ``reports/`` (Excel model card, always
+       everything else itself under ``<output_dir>/<run_id>/`` — ``model/`` (a
+       ``ScoringPipeline`` bundle — feature/selection pipelines, model, and calibrator
+       together — auto-saved via ``ScoringPipeline.save()``; see :doc:`quickstart`'s
+       "Scoring new data" section), ``reports/`` (Excel model card, always
        written; HTML, only when ``reporting.html_report=True``), ``logs/`` (this run's
        captured log lines), and ``eda/`` (reserved). The resolved config is also saved as
        ``<run_dir>/config.yaml``. Run tracking via
