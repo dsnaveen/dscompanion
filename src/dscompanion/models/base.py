@@ -49,9 +49,9 @@ class BaseDSCompanionModel(ABC):
     # Abstract
     # ------------------------------------------------------------------
 
+    @staticmethod
     @abstractmethod
     def _compute_metrics(
-        self,
         y_true: np.ndarray,
         y_pred: np.ndarray,
         y_prob: np.ndarray | None = None,
@@ -59,9 +59,15 @@ class BaseDSCompanionModel(ABC):
     ) -> dict[str, float]:
         """Compute task-specific evaluation metrics and return them as a flat dict.
 
-        Subclasses must implement this method to calculate whichever metrics are
-        appropriate for the task (e.g. AUC for classification, RMSE for
-        regression).  This method has no side-effects; it only reads its
+        Subclasses must implement this as a ``@staticmethod`` — it calculates
+        whichever metrics are appropriate for the task (e.g. AUC for
+        classification, RMSE for regression) purely from its arguments, with
+        no dependency on a fitted estimator instance.  This lets callers
+        outside of ``evaluate()`` (e.g. a monitoring job re-measuring
+        performance on historical predictions) reuse the exact same metric
+        formulas on raw arrays.  A concrete subclass's override may accept
+        additional task-specific keyword arguments (e.g. ``train_scores`` —
+        see ``ClassificationModel``).  No side-effects; only reads its
         arguments and returns a new dict.
 
         Args:
@@ -227,7 +233,12 @@ class BaseDSCompanionModel(ABC):
             y_prob: np.ndarray | None = None
             if hasattr(self.estimator, "predict_proba"):
                 y_prob = self.predict_proba(X)[:, 1]
-            metrics = self._compute_metrics(y.values, y_pred, y_prob, split_name=split_name)
+            extra_kwargs = (
+                {"train_scores": self._train_scores} if hasattr(self, "_train_scores") else {}
+            )
+            metrics = self._compute_metrics(
+                y.values, y_pred, y_prob, split_name=split_name, **extra_kwargs
+            )
             for metric, value in metrics.items():
                 rows.append(
                     {

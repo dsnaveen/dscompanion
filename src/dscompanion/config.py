@@ -165,6 +165,14 @@ class DSCompanionConfig(BaseSettings):
             "Number of equal-frequency bins used in feature_psi_table() for numeric columns"
         ),
     )
+    csi_alert_threshold: float = Field(
+        0.2,
+        description=(
+            "CSI (feature-level drift, frozen training reference) above this value is "
+            "flagged as significant distribution shift — stricter than psi_alert_threshold "
+            "since CSI compares raw business features, not model scores"
+        ),
+    )
 
     # ── Model metrics ────────────────────────────────────────────────────────
     classification_metrics: list[str] = ["roc_auc", "ks_statistic", "gini", "f1", "log_loss", "psi"]

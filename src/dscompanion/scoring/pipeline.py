@@ -14,13 +14,13 @@ import joblib
 import pandas as pd
 
 from dscompanion.config import settings
-from dscompanion.utils.metrics import psi_score
+from dscompanion.utils.metrics import feature_csi_table, psi_score
 
 logger = logging.getLogger(__name__)
 
 __all__ = ["ScoringPipeline"]
 
-_BUNDLE_SCHEMA_VERSION = 1
+_BUNDLE_SCHEMA_VERSION = 2
 
 
 def _dtype_bucket(series: pd.Series) -> str:
@@ -87,6 +87,16 @@ class ScoringPipeline:
             value), used as the baseline for ``compute_drift``. ``None``
             for clustering (no comparable score distribution) or if it
             could not be computed during training.
+        feature_reference_ (dict[str, dict] | None): Per-column frozen
+            reference distribution (bin edges + proportions for numeric
+            columns, category → proportion map for categorical columns)
+            computed once from the raw training data via
+            ``freeze_feature_reference`` — used as the baseline for
+            ``compute_feature_drift``. Does NOT contain any raw training
+            rows (privacy/size — a portable bundle should never carry
+            actual customer feature values). ``None`` for
+            ``task="clustering"`` or if it could not be computed during
+            training.
         bundle_schema_version (int): Versions this class's on-disk shape,
             independent of ``dscompanion``'s package version — an
             incompatible future redesign bumps this, and ``load`` rejects
@@ -108,6 +118,7 @@ class ScoringPipeline:
         task: str,
         id_column_candidates: list[str],
         psi_reference: pd.Series | None,
+        feature_reference: dict[str, dict] | None = None,
         bundle_schema_version: int = _BUNDLE_SCHEMA_VERSION,
         dscompanion_version: str = "",
     ) -> None:
@@ -120,6 +131,7 @@ class ScoringPipeline:
         self.task = task
         self.id_column_candidates = list(id_column_candidates)
         self.psi_reference_ = psi_reference
+        self.feature_reference_ = feature_reference
         self.bundle_schema_version = bundle_schema_version
         self.dscompanion_version = dscompanion_version
 
@@ -138,6 +150,7 @@ class ScoringPipeline:
         task: str,
         id_column_candidates: list[str],
         psi_reference: pd.Series | None,
+        feature_reference: dict[str, dict] | None = None,
     ) -> "ScoringPipeline":
         """Build a ``ScoringPipeline`` from a completed ``PipelineRunner`` run's artefacts.
 
@@ -158,6 +171,9 @@ class ScoringPipeline:
                 features at training time — see the class docstring.
             psi_reference (pd.Series | None): Training-set prediction score
                 distribution for ``compute_drift``, or ``None``.
+            feature_reference (dict[str, dict] | None): Frozen per-column
+                reference distribution for ``compute_feature_drift``
+                (from ``freeze_feature_reference``), or ``None``.
 
         Returns:
             ScoringPipeline: A new, ready-to-save instance.
@@ -175,6 +191,7 @@ class ScoringPipeline:
             task=task,
             id_column_candidates=id_column_candidates,
             psi_reference=psi_reference,
+            feature_reference=feature_reference,
             dscompanion_version=getattr(dscompanion, "__version__", ""),
         )
 
@@ -350,6 +367,43 @@ class ScoringPipeline:
                 }
             ]
         )
+
+    def compute_feature_drift(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Compute Characteristic Stability Index (CSI) per raw feature column against
+        the training-set reference distribution.
+
+        Unlike ``predict``/``compute_drift``, this method does **not** run the
+        fitted ``feature_pipeline``/``selection_pipeline`` transform chain —
+        CSI compares raw, business-interpretable feature distributions
+        against the training-time raw reference, not encoded/scaled model
+        inputs.
+
+        Args:
+            df (pd.DataFrame): Raw, unseen data — same requirements as
+                ``predict``.
+
+        Returns:
+            pd.DataFrame: Columns ``feature`` (str), ``psi`` (float, rounded
+            to 4 d.p.), and ``flag`` (bool, ``True`` when exceeding
+            ``settings.csi_alert_threshold``) — one row per raw feature
+            column shared between ``df`` and ``self.feature_reference_``.
+            Contrast with ``compute_drift``'s single ``__score__`` row.
+
+        Raises:
+            ValueError: If ``df`` fails schema validation (via ``predict``),
+                or if no ``feature_reference_`` was captured at training time
+                (always the case for ``task="clustering"``).
+        """
+        if self.feature_reference_ is None:
+            raise ValueError(
+                "No feature_reference_ available for this ScoringPipeline — feature drift "
+                "computation requires a training-time reference distribution, which isn't "
+                "captured for task='clustering' or if it couldn't be computed during "
+                "training."
+            )
+        self._validate_schema(df)
+        feature_cols = [c for c in df.columns if c in self.schema_]
+        return feature_csi_table(self.feature_reference_, df[feature_cols])
 
     # ── Validation ───────────────────────────────────────────────────────────
 

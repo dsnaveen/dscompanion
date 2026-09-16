@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from dscompanion.config import settings
 from dscompanion.models import ClassificationModel, ClusteringModel, ModelFactory, RegressionModel
 from dscompanion.models.base import BaseDSCompanionModel
 from dscompanion.utils.metrics import psi_score
@@ -291,6 +292,33 @@ class TestClassificationPSI:
         split = self._build_split(numeric_X_train, y_train, numeric_X_test, y_test)
         eval_df = model.evaluate(split)
         assert "psi" not in eval_df["metric"].tolist()
+
+    def test_compute_metrics_callable_as_staticmethod_matches_evaluate(
+        self, numeric_X_train, numeric_X_test, y_train, y_test
+    ):
+        """ClassificationModel._compute_metrics is a pure staticmethod — callable
+        directly on raw arrays (the exact shape a future monitoring job needs),
+        with no fitted estimator involved, and produces the same psi value
+        evaluate() would for the same split.
+        """
+        model = ModelFactory.build("classification", "logistic")
+        model.fit(numeric_X_train, y_train)
+        split = self._build_split(numeric_X_train, y_train, numeric_X_test, y_test)
+        eval_df = model.evaluate(split)
+        expected_psi = eval_df.loc[
+            (eval_df["split"] == "test") & (eval_df["metric"] == "psi"), "value"
+        ].iloc[0]
+
+        y_pred = model.predict(numeric_X_test)
+        y_prob = model.predict_proba(numeric_X_test)[:, 1]
+        direct = ClassificationModel._compute_metrics(
+            y_test.values,
+            y_pred,
+            y_prob,
+            split_name="test",
+            train_scores=model._train_scores,
+        )
+        assert round(direct["psi"], settings.evaluate_round_precision) == expected_psi
 
 
 # ---------------------------------------------------------------------------

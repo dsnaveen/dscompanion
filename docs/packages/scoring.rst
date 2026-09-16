@@ -17,7 +17,10 @@ and saves it automatically as ``<run_dir>/model/<name>_v<version>_scoring_pipeli
 batch and returns a DataFrame; ``.predict_one(record)`` scores a single dict record — the
 natural binding for a future single-request API endpoint; ``.compute_drift(df)`` checks the
 batch's prediction-score distribution against the training-time reference via Population
-Stability Index.
+Stability Index; ``.compute_feature_drift(df)`` checks per-raw-feature drift (Characteristic
+Stability Index) against a frozen, privacy-safe training reference distribution (bin
+edges/proportions, never raw rows) — see :doc:`monitoring` for how this feeds a full
+monitoring report once actuals are available.
 
 ``ScoringConfig``/``ScoringRunner`` are the YAML-driven counterpart to
 ``PipelineConfig``/``PipelineRunner``, for a recurring batch scoring job — see

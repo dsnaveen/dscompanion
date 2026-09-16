@@ -131,6 +131,10 @@ Load the bundle in any later process and call ``predict`` on new, raw, unseen da
    # from what training saw (Population Stability Index)
    drift_report = scoring_pipeline.compute_drift(new_df)
 
+   # Optional: check whether raw feature characteristics have drifted from
+   # training (Characteristic Stability Index) — one row per feature
+   feature_drift_report = scoring_pipeline.compute_feature_drift(new_df)
+
 ``predict`` validates ``new_df``'s schema against what training actually saw and raises a
 clear ``ValueError`` naming any missing or dtype-incompatible column — never silently
 produces predictions from a mismatched schema.
@@ -154,3 +158,27 @@ convention:
    print(result.scored_df)          # same shape as ScoringPipeline.predict()'s return value
    print(result.output_path)        # <output.output_dir>/<run_id>/scored.parquet
    print(result.drift_report)       # populated only when check_drift: true in the YAML
+
+Monitoring
+-----------
+
+Once a scored batch's actual outcome (target) arrives — the third leg of the scorecard
+lifecycle, after training and scoring — ``MonitoringConfig``/``MonitoringRunner`` join that
+past scored output with a separately-arrived actuals file, re-measure performance against
+the actual outcome, and (optionally) check feature-level drift (CSI — Characteristic
+Stability Index) against the training reference. Copy ``templates/monitoring_template.yaml``:
+
+.. code-block:: python
+
+   from dscompanion.monitoring import MonitoringRunner
+
+   result = MonitoringRunner.from_yaml("monitoring/credit_risk_v1_monitoring.yaml").run()
+
+   print(result.performance_report)      # re-measured metrics — same formulas evaluate() uses
+   print(result.feature_drift_report)    # populated only when raw_data is set in the YAML
+
+Two constraints worth knowing: ``id_columns`` in the monitoring YAML must match the
+``id_columns`` the *original* ``ScoringRunner`` run used to produce ``scored_data`` — that's
+the only join key available between the two files. And ``raw_data`` (the batch's raw feature
+data) is optional — its presence is itself the toggle for computing feature drift; omit it
+for a lightweight performance-only check.

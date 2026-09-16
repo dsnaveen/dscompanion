@@ -77,21 +77,26 @@ class ClassificationModel(BaseDSCompanionModel):
             self._train_scores = self.estimator.predict_proba(X)[:, 1]
         return self
 
+    @staticmethod
     def _compute_metrics(
-        self,
         y_true: np.ndarray,
         y_pred: np.ndarray,
         y_prob: np.ndarray | None = None,
         split_name: str = "",
+        train_scores: np.ndarray | None = None,
     ) -> dict[str, float]:
         """Compute a standard suite of classification evaluation metrics.
+
+        A pure function of its arguments (``@staticmethod``) — no fitted
+        estimator instance is involved, so callers outside of ``evaluate()``
+        (e.g. a monitoring job re-measuring performance on historical
+        predictions) can call this directly on raw arrays.
 
         Always computes label-based metrics (``f1``, ``precision``,
         ``recall``).  Probability-based metrics (``roc_auc``, ``gini``,
         ``ks_statistic``, ``log_loss``, ``psi``) are added only when
-        ``y_prob`` is supplied.  PSI is included only when the length of
-        ``y_prob`` differs from the cached training scores, indicating that
-        evaluation is occurring on a non-training split.  Each metric is
+        ``y_prob`` is supplied.  PSI is included only when ``split_name`` is
+        not ``"train"`` and ``train_scores`` is provided.  Each metric is
         computed independently — one failure does not suppress the rest.
         No side-effects.
 
@@ -103,6 +108,11 @@ class ClassificationModel(BaseDSCompanionModel):
             y_prob (np.ndarray, optional): Predicted positive-class
                 probabilities, shape ``(n_samples,)``.  Pass ``None`` when
                 probability output is not available.
+            train_scores (np.ndarray, optional): Training-set positive-class
+                probability distribution used as the PSI baseline. ``None``
+                skips the ``psi`` metric. ``evaluate()`` passes the fitting
+                model's own cached ``self._train_scores``; other callers may
+                pass any comparable reference distribution.
 
         Returns:
             dict: Mapping of metric name (str) to scalar float value.  Always
@@ -134,9 +144,9 @@ class ClassificationModel(BaseDSCompanionModel):
                 except (ValueError, ArithmeticError) as exc:
                     logger.debug("metric '%s' skipped: %s", name, exc)
 
-            if split_name != "train" and self._train_scores is not None:
+            if split_name != "train" and train_scores is not None:
                 try:
-                    metrics["psi"] = psi_score(self._train_scores, y_prob)
+                    metrics["psi"] = psi_score(train_scores, y_prob)
                 except (ValueError, ArithmeticError) as exc:
                     logger.debug("metric 'psi' skipped: %s", exc)
 

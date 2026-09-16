@@ -1588,6 +1588,14 @@ class TestEndToEndPipelineRegression:
         # Strong linear signal by construction — a fitted model should recover it.
         assert float(row["value"].iloc[0]) > 0.5
 
+    # ── scoring bundle ───────────────────────────────────────────────────────────
+
+    def test_scoring_pipeline_has_feature_reference_for_regression(self, e2e_result):
+        from dscompanion.scoring import ScoringPipeline
+
+        loaded = ScoringPipeline.load(e2e_result.scoring_pipeline_path)
+        assert loaded.feature_reference_ is not None
+
     # ── classification-only stages correctly no-op for regression ──────────────
 
     def test_calibrator_is_none_for_regression(self, e2e_result):
@@ -1791,6 +1799,12 @@ class TestRunOutputOrganization:
 
     def test_scoring_pipeline_path_is_inside_run_dir_model_subdirectory(self, e2e_result):
         assert Path(e2e_result.scoring_pipeline_path).parent == Path(e2e_result.run_dir) / "model"
+
+    def test_scoring_pipeline_has_feature_reference_for_classification(self, e2e_result):
+        from dscompanion.scoring import ScoringPipeline
+
+        loaded = ScoringPipeline.load(e2e_result.scoring_pipeline_path)
+        assert loaded.feature_reference_ is not None
 
     def test_excel_report_path_is_populated_and_non_empty(self, e2e_result):
         assert e2e_result.excel_report_path is not None

@@ -172,6 +172,51 @@ class TestComputeDrift:
         assert report["flag"].iloc[0]
 
 
+class TestComputeFeatureDrift:
+    def test_unchanged_distribution_is_not_flagged(
+        self, scoring_pipeline_path, run_result, synthetic_df
+    ):
+        loaded = ScoringPipeline.load(scoring_pipeline_path)
+        new_df = synthetic_df.loc[run_result.split.test_X.index]
+
+        report = loaded.compute_feature_drift(new_df)
+
+        assert not report["flag"].any()
+
+    def test_one_shifted_feature_is_flagged(self, scoring_pipeline_path, run_result, synthetic_df):
+        loaded = ScoringPipeline.load(scoring_pipeline_path)
+        shifted_df = synthetic_df.loc[run_result.split.test_X.index].copy()
+        shifted_df["f1"] = shifted_df["f1"] + 8.0
+
+        report = loaded.compute_feature_drift(shifted_df)
+
+        assert report.loc[report["feature"] == "f1", "flag"].iloc[0]
+        assert not report.loc[report["feature"] == "f2", "flag"].iloc[0]
+
+    def test_raises_without_feature_reference(
+        self, scoring_pipeline_path, run_result, synthetic_df
+    ):
+        loaded = ScoringPipeline.load(scoring_pipeline_path)
+        loaded.feature_reference_ = None
+        new_df = synthetic_df.loc[run_result.split.test_X.index]
+        with pytest.raises(ValueError, match="feature_reference_"):
+            loaded.compute_feature_drift(new_df)
+
+    def test_does_not_require_transform_chain_to_succeed(
+        self, scoring_pipeline_path, run_result, synthetic_df
+    ):
+        # A brand-new categorical value that a fitted encoder inside
+        # predict()/compute_drift() might choke on should not break
+        # compute_feature_drift(), since it bypasses the transform chain
+        # entirely and compares raw columns directly.
+        loaded = ScoringPipeline.load(scoring_pipeline_path)
+        new_df = synthetic_df.loc[run_result.split.test_X.index].copy()
+        new_df["cat_low"] = "a_brand_new_category_never_seen_in_training"
+
+        report = loaded.compute_feature_drift(new_df)
+        assert "cat_low" in report["feature"].tolist()
+
+
 class TestRegressionTask:
     @pytest.fixture(scope="class")
     def synthetic_regression_df(self) -> pd.DataFrame:
@@ -278,3 +323,9 @@ class TestBundleVersioning:
 
         with pytest.raises(RuntimeError, match="bundle_schema_version"):
             ScoringPipeline.load(bad_path)
+
+    def test_freshly_created_pipeline_has_current_bundle_schema_version(
+        self, scoring_pipeline_path
+    ):
+        loaded = ScoringPipeline.load(scoring_pipeline_path)
+        assert loaded.bundle_schema_version == 2

@@ -16,6 +16,7 @@ from dscompanion.explain import BootstrapSHAPExplainer, LIMEExplainer, SHAPExpla
 from dscompanion.features import FeatureProcessingPipeline
 from dscompanion.leaderboard import Leaderboard
 from dscompanion.models import ModelFactory
+from dscompanion.monitoring import MonitoringConfig, MonitoringRunner, MonitoringRunResult
 from dscompanion.pipeline import PipelineConfig, PipelineRunner, PipelineRunResult
 from dscompanion.scoring import ScoringConfig, ScoringPipeline, ScoringRunner, ScoringRunResult
 from dscompanion.selection import FeatureSelectionPipeline
@@ -68,6 +69,10 @@ __all__ = [
     "ScoringConfig",
     "ScoringRunner",
     "ScoringRunResult",
+    # Monitoring
+    "MonitoringConfig",
+    "MonitoringRunner",
+    "MonitoringRunResult",
     # Utils
     "SyntheticDataGenerator",
 ]

@@ -5,11 +5,19 @@ from __future__ import annotations
 import sys
 from unittest.mock import MagicMock, patch
 
+import joblib
 import numpy as np
 import pandas as pd
 import pytest
 
-from dscompanion.utils.metrics import DECILE_TABLE_COLUMNS, decile_table, feature_psi_table
+from dscompanion.utils.metrics import (
+    DECILE_TABLE_COLUMNS,
+    csi_score,
+    decile_table,
+    feature_csi_table,
+    feature_psi_table,
+    freeze_feature_reference,
+)
 from dscompanion.utils.synthetic import SyntheticDataGenerator
 from dscompanion.utils.validators import (
     _check_spark_conf,
@@ -170,6 +178,160 @@ class TestFeaturePsiTable:
             feature_psi_table(np.array([1, 2, 3]), pd.DataFrame({"a": [1, 2, 3]}))
         with pytest.raises(TypeError):
             feature_psi_table(pd.DataFrame({"a": [1, 2, 3]}), [1, 2, 3])
+
+
+class TestFreezeFeatureReference:
+    """freeze_feature_reference — persist a per-column reference distribution, no raw rows."""
+
+    def test_numeric_column_has_inf_extended_edges(self):
+        rng = np.random.RandomState(0)
+        df = pd.DataFrame({"f1": rng.normal(0, 1, 1000)})
+        ref = freeze_feature_reference(df)
+        assert ref["f1"]["type"] == "numeric"
+        assert ref["f1"]["bin_edges"][0] == -np.inf
+        assert ref["f1"]["bin_edges"][-1] == np.inf
+
+    def test_categorical_column_proportions_sum_to_one(self):
+        rng = np.random.RandomState(0)
+        df = pd.DataFrame({"cat": rng.choice(["a", "b", "c"], 500)})
+        ref = freeze_feature_reference(df)
+        assert ref["cat"]["type"] == "categorical"
+        assert sum(ref["cat"]["category_proportions"].values()) == pytest.approx(1.0)
+
+    def test_large_point_mass_warns_and_collapses_bins(self, caplog):
+        rng = np.random.RandomState(0)
+        n = 1000
+        values = np.concatenate([np.zeros(int(n * 0.8)), rng.normal(5, 1, int(n * 0.2))])
+        df = pd.DataFrame({"f1": values})
+        with caplog.at_level("WARNING"):
+            ref = freeze_feature_reference(df, n_bins=10)
+        effective_bins = len(ref["f1"]["bin_edges"]) - 1
+        assert effective_bins < 10
+        assert any("collapsed" in rec.message for rec in caplog.records)
+
+    def test_constant_column_does_not_raise(self):
+        df = pd.DataFrame({"f1": np.full(100, 7.0)})
+        ref = freeze_feature_reference(df)
+        assert len(ref["f1"]["bin_edges"]) == 2
+
+    def test_all_nan_column_skipped(self):
+        df = pd.DataFrame({"f1": [np.nan] * 50})
+        ref = freeze_feature_reference(df)
+        assert "f1" not in ref
+
+    def test_reference_is_joblib_picklable(self, tmp_path):
+        rng = np.random.RandomState(0)
+        df = pd.DataFrame({"f1": rng.normal(0, 1, 500), "cat": rng.choice(["a", "b"], 500)})
+        ref = freeze_feature_reference(df)
+        path = tmp_path / "ref.joblib"
+        joblib.dump(ref, path)
+        loaded = joblib.load(path)
+        assert loaded["f1"]["type"] == "numeric"
+        assert loaded["cat"]["type"] == "categorical"
+
+
+class TestCsiScore:
+    """csi_score — CSI/PSI for a single column against its frozen reference."""
+
+    def test_identical_distribution_near_zero(self):
+        rng = np.random.RandomState(0)
+        ref_values = pd.Series(rng.normal(0, 1, 2000))
+        reference = freeze_feature_reference(pd.DataFrame({"f1": ref_values}))["f1"]
+        cmp = pd.Series(rng.normal(0, 1, 2000))
+        assert csi_score(reference, cmp) < 0.05
+
+    def test_out_of_range_value_counted_not_dropped(self):
+        rng = np.random.RandomState(0)
+        ref_values = pd.Series(rng.normal(0, 1, 2000))
+        reference = freeze_feature_reference(pd.DataFrame({"f1": ref_values}))["f1"]
+        # Far beyond anything the reference ever saw.
+        extreme = pd.Series(np.full(200, 1000.0))
+        # Should not raise, and should register as a large CSI (top bucket
+        # proportion spikes far above its tiny reference proportion) rather
+        # than silently vanishing from the bin counts.
+        value = csi_score(reference, extreme)
+        assert value > 1.0
+
+    def test_unseen_category_does_not_raise(self):
+        rng = np.random.RandomState(0)
+        ref_values = pd.Series(rng.choice(["a", "b"], 500))
+        reference = freeze_feature_reference(pd.DataFrame({"cat": ref_values}))["cat"]
+        cmp = pd.Series(["c"] * 50)
+        value = csi_score(reference, cmp)
+        assert value > 0
+
+
+class TestFeatureCsiTable:
+    """feature_csi_table — per-column CSI table, flagged via settings.csi_alert_threshold."""
+
+    def test_type_errors(self):
+        with pytest.raises(TypeError):
+            feature_csi_table([], pd.DataFrame({"a": [1, 2]}))
+        with pytest.raises(TypeError):
+            feature_csi_table({"a": {"type": "numeric"}}, [1, 2])
+
+    def test_empty_inputs_return_empty(self):
+        result = feature_csi_table({}, pd.DataFrame({"a": [1, 2]}))
+        assert result.empty
+        assert list(result.columns) == ["feature", "psi", "flag"]
+
+        rng = np.random.RandomState(0)
+        reference = freeze_feature_reference(pd.DataFrame({"a": rng.normal(0, 1, 100)}))
+        assert feature_csi_table(reference, pd.DataFrame()).empty
+
+    def test_unshared_columns_skipped(self):
+        rng = np.random.RandomState(0)
+        reference = freeze_feature_reference(pd.DataFrame({"a": rng.normal(0, 1, 200)}))
+        result = feature_csi_table(reference, pd.DataFrame({"b": rng.normal(0, 1, 200)}))
+        assert result.empty
+
+    def test_flags_at_stricter_csi_band_than_psi(self):
+        # Construct a shift landing between csi_alert_threshold (0.2) and
+        # psi_alert_threshold (0.25) — feature_csi_table should flag it,
+        # feature_psi_table (same data, blanket 0.25 band) should not.
+        rng = np.random.RandomState(3)
+        ref_df = pd.DataFrame({"f1": rng.normal(0, 1, 5000)})
+        cmp_df = pd.DataFrame({"f1": rng.normal(0.45, 1, 5000)})
+
+        reference = freeze_feature_reference(ref_df)
+        csi_result = feature_csi_table(reference, cmp_df)
+        psi_result = feature_psi_table(ref_df, cmp_df)
+
+        csi_value = csi_result.loc[csi_result["feature"] == "f1", "psi"].iloc[0]
+        assert 0.2 < csi_value
+        assert csi_result.loc[csi_result["feature"] == "f1", "flag"].iloc[0]
+        if psi_result.loc[psi_result["feature"] == "f1", "psi"].iloc[0] <= 0.25:
+            assert not psi_result.loc[psi_result["feature"] == "f1", "flag"].iloc[0]
+
+    def test_sorted_descending_by_psi(self):
+        rng = np.random.RandomState(0)
+        ref_df = pd.DataFrame({"stable": rng.normal(0, 1, 1000), "shifted": rng.normal(0, 1, 1000)})
+        cmp_df = pd.DataFrame(
+            {"stable": rng.normal(0, 1, 1000), "shifted": rng.normal(10, 1, 1000)}
+        )
+        reference = freeze_feature_reference(ref_df)
+        result = feature_csi_table(reference, cmp_df)
+        assert result.iloc[0]["feature"] == "shifted"
+
+
+class TestCsiAlertThreshold:
+    """settings.csi_alert_threshold — stricter, independent sibling of psi_alert_threshold."""
+
+    def test_default_is_0_2(self):
+        from dscompanion.config import settings
+
+        assert settings.csi_alert_threshold == 0.2
+
+    def test_independently_mutable_from_psi_alert_threshold(self):
+        from dscompanion.config import settings
+
+        original_csi = settings.csi_alert_threshold
+        original_psi = settings.psi_alert_threshold
+        try:
+            settings.csi_alert_threshold = 0.15
+            assert settings.psi_alert_threshold == original_psi
+        finally:
+            settings.csi_alert_threshold = original_csi
 
 
 # ---------------------------------------------------------------------------

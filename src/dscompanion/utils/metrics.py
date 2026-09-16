@@ -2,15 +2,23 @@
 
 from __future__ import annotations
 
+import logging
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_curve
+
+logger = logging.getLogger(__name__)
 
 __all__ = [
     "ks_statistic",
     "gini_coefficient",
     "psi_score",
     "feature_psi_table",
+    "freeze_feature_reference",
+    "csi_score",
+    "feature_csi_table",
     "iv_score",
     "woe_bins",
     "expected_calibration_error",
@@ -209,6 +217,182 @@ def feature_psi_table(
                 "flag": v > _settings.psi_alert_threshold,
             }
         )
+
+    return (
+        pd.DataFrame(rows, columns=_COLS).sort_values("psi", ascending=False).reset_index(drop=True)
+        if rows
+        else pd.DataFrame(columns=_COLS)
+    )
+
+
+_LOW_RESOLUTION_BIN_RATIO = 0.5
+
+
+def freeze_feature_reference(reference: pd.DataFrame, n_bins: int = 0) -> dict[str, dict[str, Any]]:
+    """Compute and freeze a per-column reference distribution from a raw training DataFrame.
+
+    Used for later feature-level drift (CSI) comparison via ``feature_csi_table``/
+    ``csi_score`` — without persisting any raw rows, so the result is safe to
+    embed (joblib-picklable) inside an artefact that may be copied to a
+    cluster or API service. Numeric columns are binned via the same
+    equal-frequency (quantile) approach ``psi_score`` already uses, but with
+    the first/last edge extended to ``-inf``/``inf`` so any future
+    out-of-range value lands in the correct extreme bucket rather than being
+    silently dropped (the behaviour ``psi_score`` itself has today).
+    Categorical/object columns get a category-to-proportion map instead.
+
+    Args:
+        reference (pd.DataFrame): Baseline feature matrix, typically the raw
+            (pre-``feature_pipeline``) training set.
+        n_bins (int): Number of equal-frequency bins for numeric columns. A
+            value of ``0`` delegates to ``settings.psi_feature_n_bins``.
+
+    Returns:
+        dict[str, dict]: One entry per column (columns that are empty after
+        ``dropna()`` are skipped entirely). Numeric columns:
+        ``{"type": "numeric", "bin_edges": np.ndarray, "bin_proportions":
+        np.ndarray}`` (``bin_edges`` has ``len(bin_proportions) + 1``
+        entries, first/last equal to ``-inf``/``inf``). Categorical columns:
+        ``{"type": "categorical", "category_proportions": dict[str, float]}``.
+    """
+    from dscompanion.config import settings as _settings
+
+    _n_bins = n_bins or _settings.psi_feature_n_bins
+    reference_distribution: dict[str, dict[str, Any]] = {}
+
+    for col in reference.columns:
+        s = reference[col].dropna()
+        if len(s) == 0:
+            logger.debug("freeze_feature_reference: skipping %r — empty after dropna", col)
+            continue
+
+        if pd.api.types.is_numeric_dtype(s):
+            edges = np.unique(np.percentile(s.values, np.linspace(0, 100, _n_bins + 1)))
+            if len(edges) < 2:
+                edges = np.array([s.values[0], s.values[0]])
+
+            effective_n_bins = len(edges) - 1
+            if effective_n_bins < max(1, int(_n_bins * _LOW_RESOLUTION_BIN_RATIO)):
+                logger.warning(
+                    "freeze_feature_reference: column %r collapsed to %d effective bin(s) "
+                    "(requested %d) after de-duplicating percentile edges — likely a large "
+                    "point-mass (e.g. many exact-zero values); CSI on this column will be "
+                    "lower-resolution than requested.",
+                    col,
+                    effective_n_bins,
+                    _n_bins,
+                )
+
+            edges = edges.astype(float)
+            edges[0] = -np.inf
+            edges[-1] = np.inf
+            bin_proportions = np.histogram(s.values, bins=edges)[0] / len(s)
+            reference_distribution[col] = {
+                "type": "numeric",
+                "bin_edges": edges,
+                "bin_proportions": bin_proportions,
+            }
+        else:
+            category_proportions = (s.astype(str).value_counts() / len(s)).to_dict()
+            reference_distribution[col] = {
+                "type": "categorical",
+                "category_proportions": category_proportions,
+            }
+
+    return reference_distribution
+
+
+def csi_score(column_reference: dict[str, Any], comparison: pd.Series) -> float:
+    """Compute the Characteristic/Population Stability Index for a single column
+    against its frozen reference distribution.
+
+    Args:
+        column_reference (dict): One column's entry from
+            ``freeze_feature_reference``'s return value.
+        comparison (pd.Series): New data for this same column.
+
+    Returns:
+        float: CSI/PSI value in ``[0, +inf)``.
+    """
+    eps = 1e-8
+    comparison = comparison.dropna()
+
+    if column_reference["type"] == "numeric":
+        actual_pct = np.histogram(comparison.values, bins=column_reference["bin_edges"])[0] / len(
+            comparison
+        )
+        expected_pct = column_reference["bin_proportions"]
+        actual_pct = np.clip(actual_pct, eps, None)
+        expected_pct = np.clip(expected_pct, eps, None)
+        return float(np.sum((actual_pct - expected_pct) * np.log(actual_pct / expected_pct)))
+
+    ref_props = column_reference["category_proportions"]
+    cmp_str = comparison.astype(str)
+    cmp_counts = cmp_str.value_counts()
+    categories = set(ref_props) | set(cmp_counts.index)
+    ref_pct = np.array([ref_props.get(c, eps) for c in categories])
+    cmp_pct = np.array([cmp_counts.get(c, 0) / len(comparison) for c in categories])
+    ref_pct = np.clip(ref_pct, eps, None)
+    cmp_pct = np.clip(cmp_pct, eps, None)
+    return float(np.sum((cmp_pct - ref_pct) * np.log(cmp_pct / ref_pct)))
+
+
+def feature_csi_table(
+    feature_reference: dict[str, dict[str, Any]],
+    comparison: pd.DataFrame,
+) -> pd.DataFrame:
+    """Compute per-column CSI between a frozen training reference and new data.
+
+    The feature-level counterpart to ``feature_psi_table``, but driven by a
+    frozen reference distribution (from ``freeze_feature_reference``) instead
+    of a live reference DataFrame, and flagged against
+    ``settings.csi_alert_threshold`` (stricter than
+    ``settings.psi_alert_threshold``, since CSI compares raw business
+    features rather than model scores).
+
+    Args:
+        feature_reference (dict[str, dict]): Output of
+            ``freeze_feature_reference``.
+        comparison (pd.DataFrame): New data to compare against the frozen
+            reference; typically an out-of-time or production batch.
+
+    Returns:
+        pd.DataFrame: One row per evaluated column with columns ``feature``
+        (str), ``psi`` (float, rounded to 4 d.p.), and ``flag`` (bool,
+        ``True`` when ``psi`` exceeds ``settings.csi_alert_threshold``).
+        Sorted by ``psi`` descending. Returns an empty DataFrame with those
+        columns when no shared columns exist or ``comparison`` is empty.
+
+    Raises:
+        TypeError: If ``feature_reference`` is not a ``dict`` or
+            ``comparison`` is not a ``pd.DataFrame``.
+    """
+    if not isinstance(feature_reference, dict):
+        raise TypeError(
+            "feature_reference must be a dict, got %s" % type(feature_reference).__name__
+        )
+    if not isinstance(comparison, pd.DataFrame):
+        raise TypeError("comparison must be a pd.DataFrame, got %s" % type(comparison).__name__)
+
+    from dscompanion.config import settings as _settings
+
+    _COLS = ["feature", "psi", "flag"]
+    if not feature_reference or comparison.empty:
+        return pd.DataFrame(columns=_COLS)
+
+    shared = [c for c in feature_reference if c in comparison.columns]
+    rows = []
+    for col in shared:
+        cmp_col = comparison[col].dropna()
+        if len(cmp_col) == 0:
+            logger.debug("feature_csi_table: skipping %r — empty after dropna", col)
+            continue
+        try:
+            v = csi_score(feature_reference[col], cmp_col)
+        except (ValueError, ArithmeticError) as exc:
+            logger.debug("feature_csi_table: skipping %r — %s", col, exc)
+            continue
+        rows.append({"feature": col, "psi": round(v, 4), "flag": v > _settings.csi_alert_threshold})
 
     return (
         pd.DataFrame(rows, columns=_COLS).sort_values("psi", ascending=False).reset_index(drop=True)

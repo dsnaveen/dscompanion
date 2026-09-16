@@ -43,14 +43,19 @@ class RegressionModel(BaseDSCompanionModel):
     ) -> None:  # Any: sklearn-compatible regressor with fit/predict interface
         super().__init__(estimator, **kwargs)
 
+    @staticmethod
     def _compute_metrics(
-        self,
         y_true: np.ndarray,
         y_pred: np.ndarray,
         y_prob: np.ndarray | None = None,
         split_name: str = "",
     ) -> dict[str, float]:
         """Compute a standard suite of regression evaluation metrics.
+
+        A pure function of its arguments (``@staticmethod``) — no fitted
+        estimator instance is involved, so callers outside of ``evaluate()``
+        (e.g. a monitoring job re-measuring performance on historical
+        predictions) can call this directly on raw arrays.
 
         Calculates RMSE, MAE, R², MAPE, and median absolute error from the
         supplied true and predicted arrays.  MAPE is computed only over

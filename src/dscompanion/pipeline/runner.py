@@ -18,6 +18,7 @@ from dscompanion.pipeline.run_utils import (
     detach_run_log_handler,
     generate_run_id_and_dir,
 )
+from dscompanion.utils.metrics import freeze_feature_reference
 
 logger = logging.getLogger(__name__)
 
@@ -391,8 +392,15 @@ class PipelineRunner:
         psi_reference = self._compute_psi_reference(
             model, calibrator, selected_split, cfg.model.task
         )
+        feature_reference = self._compute_feature_reference(raw_split.train_X, cfg.model.task)
         scoring_pipeline_path = self._save_scoring_pipeline(
-            feat_pipeline, sel_pipeline, model, calibrator, raw_split.train_X, psi_reference
+            feat_pipeline,
+            sel_pipeline,
+            model,
+            calibrator,
+            raw_split.train_X,
+            psi_reference,
+            feature_reference,
         )
 
         # Stage 11 — SHAP
@@ -914,8 +922,43 @@ class PipelineRunner:
             logger.warning("Could not compute PSI reference scores (non-fatal): %s", exc)
             return None
 
+    def _compute_feature_reference(self, schema_df: pd.DataFrame, task: str) -> dict | None:
+        """Freeze a per-column reference distribution from the raw training feature matrix,
+        for ``ScoringPipeline.compute_feature_drift``.
+
+        Uses the same ``schema_df`` (``raw_split.train_X``) already used for
+        ``ScoringPipeline.schema_`` — the single already-available raw,
+        pre-``feature_pipeline`` training DataFrame, and exactly the
+        population ``predict()``/``compute_drift()`` validate future data
+        against, so it's the only reasonable reference source.
+
+        Args:
+            schema_df (pd.DataFrame): Raw training feature matrix.
+            task (str): ``cfg.model.task``.
+
+        Returns:
+            dict | None: ``freeze_feature_reference(schema_df)``'s output, or
+            ``None`` for ``task="clustering"`` (no meaningful "compare
+            against training" concept there) or if computing it raised
+            (logged as a non-fatal warning).
+        """
+        if task == "clustering":
+            return None
+        try:
+            return freeze_feature_reference(schema_df)
+        except Exception as exc:
+            logger.warning("Could not compute feature reference distribution (non-fatal): %s", exc)
+            return None
+
     def _save_scoring_pipeline(
-        self, feature_pipeline, selection_pipeline, model, calibrator, schema_df, psi_reference
+        self,
+        feature_pipeline,
+        selection_pipeline,
+        model,
+        calibrator,
+        schema_df,
+        psi_reference,
+        feature_reference,
     ) -> Path | None:
         """Bundle the fitted pipeline stages into a ``ScoringPipeline`` and save it.
 
@@ -932,6 +975,8 @@ class PipelineRunner:
             schema_df (pd.DataFrame): Raw (pre-``feature_pipeline``) feature
                 matrix — becomes ``ScoringPipeline.schema_``.
             psi_reference: Training-set score distribution, or ``None``.
+            feature_reference: Frozen per-column reference distribution, or
+                ``None``.
 
         Returns:
             Path | None: The resolved path the bundle was saved to, or
@@ -955,6 +1000,7 @@ class PipelineRunner:
                 task=cfg.model.task,
                 id_column_candidates=id_column_candidates,
                 psi_reference=psi_reference,
+                feature_reference=feature_reference,
             )
             return scoring_pipeline.save(path)
         except Exception as exc:

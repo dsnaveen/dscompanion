@@ -36,6 +36,9 @@ pages.
    ScoringConfig
    ScoringRunner
    ScoringRunResult
+   MonitoringConfig
+   MonitoringRunner
+   MonitoringRunResult
    SyntheticDataGenerator
 
 ``ml.settings`` is also re-exported, but it's a singleton *instance* of

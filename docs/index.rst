@@ -38,6 +38,7 @@ driven end-to-end from a single YAML file via :class:`~dscompanion.pipeline.Pipe
    packages/tracking
    packages/pipeline_pkg
    packages/scoring
+   packages/monitoring
    packages/utils
 
 .. toctree::
