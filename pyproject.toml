@@ -18,11 +18,16 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
-    "pandas>=2.2,<3",          # pandas 2.x — does not default to Copy-on-Write
+    "pandas>=2.2,<4",          # 2.x and 3.x both supported — 3.x makes Copy-on-Write mandatory
+                               # (harmless here; the same CoW-safe .loc[]/copy patterns already
+                               # used for 2.x cover it). Tested against 3.0.5.
     "pyarrow>=14.0",           # parquet is DataConfig's default format — pandas needs an
                                # engine (pyarrow or fastparquet) for read_parquet/to_parquet,
                                # neither of which ships with pandas itself
-    "numpy>=2.1,<2.4",         # upper-bounded for numba (a shap dependency) compatibility
+    "numpy>=2.1,<2.6",         # upper-bounded to match numba's own declared numpy ceiling —
+                               # numba is a transitive shap dependency (shap itself only pins
+                               # numba>=0.54, no ceiling) and older numba builds (<0.67) don't
+                               # support numpy>=2.4. Tested against numpy 2.5.3 + numba 0.67.0.
     "scikit-learn>=1.7,<2",
     "scipy>=1.16,<2",
     "statsmodels>=0.14,<0.15",

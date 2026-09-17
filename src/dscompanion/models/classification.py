@@ -189,7 +189,7 @@ class ClassificationModel(BaseDSCompanionModel):
 
         y_prob = self.predict_proba(X)[:, 1]
         fpr, tpr, _ = roc_curve(y, y_prob)
-        auc = float(np.trapz(tpr, fpr))
+        auc = float(np.trapezoid(tpr, fpr))
 
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=fpr, y=tpr, name="ROC (AUC=%.3f)" % auc, mode="lines"))
