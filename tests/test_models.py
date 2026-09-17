@@ -98,6 +98,9 @@ class TestModelFactory:
             ("extra_trees", "ExtraTreesClassifier"),
             ("adaboost", "AdaBoostClassifier"),
             ("naive_bayes", "GaussianNB"),
+            ("lda", "LinearDiscriminantAnalysis"),
+            ("qda", "QuadraticDiscriminantAnalysis"),
+            ("mlp", "MLPClassifier"),
         ],
     )
     def test_build_new_classification_algorithms(self, algorithm, estimator_cls_name):
@@ -107,6 +110,19 @@ class TestModelFactory:
         )
         assert isinstance(model, ClassificationModel)
         assert model.estimator.__class__.__name__ == estimator_cls_name
+
+    @pytest.mark.parametrize("algorithm", ["lda", "qda", "mlp"])
+    def test_new_classification_algorithms_support_predict_proba(
+        self, algorithm, numeric_X_train, numeric_X_oot, y_train
+    ):
+        """predict_proba is a hard requirement for this codebase's probability-based
+        reporting surface (roc_auc, gini, ks_statistic, psi, calibration) -- confirms
+        the algorithm choice, not just that ModelFactory can build the estimator.
+        """
+        model = ModelFactory.build("classification", algorithm)
+        model.fit(numeric_X_train, y_train)
+        proba = model.predict_proba(numeric_X_oot)
+        assert proba.shape == (len(numeric_X_oot), 2)
 
     def test_build_svm_classification_enables_probability(self):
         model = ModelFactory.build(

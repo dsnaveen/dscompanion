@@ -44,6 +44,7 @@ def _build_hp_space(space_spec: dict[str, Any]):
     """
     try:
         from hyperopt import hp
+        from hyperopt.pyll import scope
     except ImportError as exc:
         raise ImportError(
             "hyperopt is not available in this environment. "
@@ -58,7 +59,14 @@ def _build_hp_space(space_spec: dict[str, Any]):
         elif ptype == "loguniform":
             hp_space[name] = hp.loguniform(name, math.log(spec["low"]), math.log(spec["high"]))
         elif ptype == "quniform":
-            hp_space[name] = hp.quniform(name, spec["low"], spec["high"], spec.get("q", 1))
+            # hp.quniform always returns a float (e.g. 25.0) even though every current
+            # "quniform" usage represents an integer hyperparameter (n_neighbors, max_depth,
+            # etc.) -- scikit-learn 1.9's strict param validation rejects a float there
+            # ("must be an int ... Got 25.0 instead"), failing every trial. scope.int()
+            # casts inside the pyll graph so the resolved value is a real int.
+            hp_space[name] = scope.int(
+                hp.quniform(name, spec["low"], spec["high"], spec.get("q", 1))
+            )
         elif ptype == "int":
             hp_space[name] = hp.randint(name, spec["high"] - spec["low"]) + spec["low"]
         elif ptype == "float":
@@ -137,7 +145,7 @@ class HyperoptBackend:
             ImportError: If the ``hyperopt`` package is not installed.
         """
         try:
-            from hyperopt import Trials, fmin, tpe
+            from hyperopt import Trials, fmin, space_eval, tpe
         except ImportError as exc:
             raise ImportError(
                 "hyperopt is not available in this environment. "
@@ -148,6 +156,7 @@ class HyperoptBackend:
         self._trial_idx = [0]
 
         hp_space = _build_hp_space(self.search_space)
+        self._hp_space = hp_space
 
         def objective(params):
             return self._objective(params)
@@ -161,9 +170,16 @@ class HyperoptBackend:
             verbose=False,
         )
 
+        # misc["vals"] holds hyperopt's raw internal representation -- for a
+        # "categorical" param (hp.choice) that's the *index* into the choices
+        # list, not the resolved value (e.g. 0 instead of "eigen"). space_eval
+        # resolves indices back to their real values; without it, a categorical
+        # best param is silently the wrong type and fails when passed to the
+        # estimator (or worse, silently selects the wrong choice for an
+        # estimator that doesn't validate its params strictly).
         best_idx = self.trials_.best_trial["tid"]
-        best_params = {k: v for k, v in self.trials_.trials[best_idx]["misc"]["vals"].items() if v}
-        best_params = {k: v[0] if isinstance(v, list) else v for k, v in best_params.items()}
+        raw_vals = {k: v[0] for k, v in self.trials_.trials[best_idx]["misc"]["vals"].items() if v}
+        best_params = space_eval(hp_space, raw_vals)
 
         best_loss = self.trials_.best_trial["result"]["loss"]
         best_score = -best_loss if self.direction == "maximize" else best_loss
@@ -190,13 +206,16 @@ class HyperoptBackend:
             and ``metric_value`` (float), containing the top 10 trials.
             Returns an empty DataFrame if no trials completed successfully.
         """
+        from hyperopt import space_eval
+
         rows = []
         for t in self.trials_.trials:
             loss = t["result"].get("loss")
             if loss is None:
                 continue
             score = -loss if self.direction == "maximize" else loss
-            params = {k: v[0] for k, v in t["misc"]["vals"].items() if v}
+            raw_vals = {k: v[0] for k, v in t["misc"]["vals"].items() if v}
+            params = space_eval(self._hp_space, raw_vals) if raw_vals else {}
             rows.append({"trial_number": t["tid"], "params": params, "metric_value": score})
         df = pd.DataFrame(rows).sort_values(
             "metric_value", ascending=(self.direction == "minimize")

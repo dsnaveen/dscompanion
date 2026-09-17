@@ -27,6 +27,8 @@ _CLASS_NAME_ALIASES = {
     "svr": "svm",
     "kneighbors": "knn",
     "gaussiannb": "naivebayes",
+    "lineardiscriminantanalysis": "lda",
+    "quadraticdiscriminantanalysis": "qda",
 }
 
 

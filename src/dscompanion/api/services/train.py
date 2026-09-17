@@ -67,6 +67,12 @@ _ALGO_NOTES: dict[str, str] = {
     "extra_trees": "Extra Trees: like Random Forest but uses more randomness; often fast.",
     "adaboost": "AdaBoost: classic boosting method; sensitive to noisy data.",
     "naive_bayes": "Naïve Bayes: very fast and surprisingly good on text-like sparse data.",
+    "lda": "Linear Discriminant Analysis: fast, interpretable, works well when classes are "
+    "roughly Gaussian with similar covariance.",
+    "qda": "Quadratic Discriminant Analysis: like LDA but allows each class its own "
+    "covariance; more flexible, needs more data per class.",
+    "mlp": "Multi-Layer Perceptron: small neural network; can capture non-linear patterns "
+    "but slower to train and less interpretable.",
 }
 
 # Algorithms excluded from the leaderboard comparison (available for single-model

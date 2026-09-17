@@ -63,6 +63,9 @@ class ModelFactory:
             "extra_trees",
             "adaboost",
             "naive_bayes",
+            "lda",
+            "qda",
+            "mlp",
         ],
         "regression": [
             "xgboost",
@@ -146,6 +149,17 @@ class ModelFactory:
                 "random_state": settings.random_state,
             },
             "naive_bayes": {},
+            "lda": {
+                "solver": "lsqr",
+                "shrinkage": "auto",
+            },
+            "qda": {"reg_param": 0.01},
+            "mlp": {
+                "hidden_layer_sizes": (100,),
+                "max_iter": 500,
+                "early_stopping": True,
+                "random_state": settings.random_state,
+            },
         },
         "regression": {
             "linear": {},
@@ -241,7 +255,8 @@ class ModelFactory:
                 - classification: ``"xgboost"``, ``"logistic"``,
                   ``"random_forest"``, ``"gradient_boosting"``, ``"lightgbm"``,
                   ``"svm"``, ``"knn"``, ``"decision_tree"``, ``"extra_trees"``,
-                  ``"adaboost"``, ``"naive_bayes"``
+                  ``"adaboost"``, ``"naive_bayes"``, ``"lda"``, ``"qda"``,
+                  ``"mlp"``
                 - regression: ``"xgboost"``, ``"linear"``, ``"ridge"``,
                   ``"lasso"``, ``"elastic_net"``, ``"random_forest"``,
                   ``"gradient_boosting"``, ``"lightgbm"``, ``"svm"``,
@@ -315,6 +330,10 @@ class ModelFactory:
         task: str, algorithm: str, params: dict[str, Any]
     ) -> Any:  # Any: sklearn-compatible estimator
         from sklearn.cluster import DBSCAN, AgglomerativeClustering, KMeans
+        from sklearn.discriminant_analysis import (
+            LinearDiscriminantAnalysis,
+            QuadraticDiscriminantAnalysis,
+        )
         from sklearn.ensemble import (
             AdaBoostClassifier,
             AdaBoostRegressor,
@@ -334,6 +353,7 @@ class ModelFactory:
         )
         from sklearn.naive_bayes import GaussianNB
         from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+        from sklearn.neural_network import MLPClassifier
         from sklearn.svm import SVC, SVR
         from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
@@ -366,6 +386,12 @@ class ModelFactory:
                 return _safe_build(AdaBoostClassifier, params)
             if algorithm == "naive_bayes":
                 return _safe_build(GaussianNB, params)
+            if algorithm == "lda":
+                return _safe_build(LinearDiscriminantAnalysis, params)
+            if algorithm == "qda":
+                return _safe_build(QuadraticDiscriminantAnalysis, params)
+            if algorithm == "mlp":
+                return _safe_build(MLPClassifier, params)
             if algorithm == "lightgbm":
                 return _import_lgbm("classifier")(**params)
             if algorithm == "xgboost":

@@ -385,13 +385,19 @@ class TestSearchSpaceInference:
             ("lightgbm", "lightgbm_classification"),
             ("gradient_boosting", "gradient_boosting_classification"),
             ("random_forest", "random_forest_classification"),
+            ("lda", "lda_classification"),
+            ("qda", "qda_classification"),
+            ("mlp", "mlp_classification"),
         ],
     )
     def test_new_classification_algorithms_resolve(self, algorithm, expected_key):
         """SVC -> "svc" and GaussianNB -> "gaussiannb" don't contain their search-space
         key's "svm"/"naive_bayes" tokens verbatim -- same class of bug as the historical
         xgboost gap above. Covered by the "svc"/"kneighbors"/"gaussiannb" aliases in
-        _CLASS_NAME_ALIASES.
+        _CLASS_NAME_ALIASES. LinearDiscriminantAnalysis/QuadraticDiscriminantAnalysis ->
+        "lineardiscriminantanalysis"/"quadraticdiscriminantanalysis" are similarly
+        covered by their own aliases; MLPClassifier -> "mlpclassifier" needs no alias
+        since "mlp" is already a verbatim substring.
         """
         from dscompanion.tuning.tuner import _infer_space_key
 
@@ -527,6 +533,9 @@ class TestTuningAcrossAllAlgorithms:
             "extra_trees",
             "adaboost",
             "naive_bayes",
+            "lda",
+            "qda",
+            "mlp",
         ],
     )
     def test_tunes_successfully(self, algorithm, numeric_split):
@@ -585,6 +594,95 @@ class TestTuningAcrossAllAlgorithms:
         )
         with pytest.raises(ValueError, match="Could not infer search space"):
             tuner.run()
+
+
+# ---------------------------------------------------------------------------
+# Full Tuner.run() coverage via the hyperopt backend
+# ---------------------------------------------------------------------------
+#
+# Regression tests for two hyperopt-specific bugs found while adding lda/qda/mlp
+# (2026-09-17), neither ever caught before because no existing test ran a full
+# Tuner.run(backend="hyperopt") end to end:
+#
+# 1. HyperoptBackend.run()'s best_params extraction read hyperopt's raw internal
+#    trials_.trials[i]["misc"]["vals"] representation directly -- for a
+#    "categorical" param (hp.choice) that's the *index* into choices, not the
+#    resolved value, so e.g. lda's "solver" came back as 0 instead of "eigen" and
+#    crashed the final refit. Fixed via hyperopt.space_eval() in both run() and
+#    best_trial_summary().
+# 2. hp.quniform always returns a float even though every "quniform" usage in
+#    this codebase represents an integer hyperparameter (n_neighbors, max_depth,
+#    etc.) -- sklearn 1.9's strict param validation rejects the float, failing
+#    every trial for knn/decision_tree/extra_trees/random_forest/adaboost. Fixed
+#    via hyperopt.pyll.scope.int() in _build_hp_space.
+
+
+class TestHyperoptBackendEndToEnd:
+    @pytest.mark.parametrize(
+        "algorithm",
+        [
+            "xgboost",
+            "lightgbm",
+            "logistic",
+            "random_forest",
+            "gradient_boosting",
+            "svm",
+            "knn",
+            "decision_tree",
+            "extra_trees",
+            "adaboost",
+            "naive_bayes",
+            "lda",
+            "qda",
+            "mlp",
+        ],
+    )
+    def test_tunes_successfully(self, algorithm, numeric_split):
+        params = {"n_estimators": 20} if algorithm in ("xgboost", "lightgbm") else None
+        model = ModelFactory.build("classification", algorithm, params=params)
+        tuner = Tuner(
+            model=model, backend="hyperopt", n_trials=2, cv=numeric_split, metric="roc_auc"
+        )
+        best_model = tuner.run()
+        assert isinstance(best_model, ClassificationModel)
+        assert tuner.best_params_
+
+    def test_categorical_param_resolved_to_value_not_index(self, numeric_split):
+        """lda's "solver" search-space entry is categorical (hp.choice) -- before the
+        space_eval fix, best_params_["solver"] came back as a raw int index (e.g. 0)
+        instead of "lsqr"/"eigen", crashing the final refit with an sklearn
+        InvalidParameterError.
+        """
+        model = ModelFactory.build("classification", "lda")
+        tuner = Tuner(
+            model=model, backend="hyperopt", n_trials=3, cv=numeric_split, metric="roc_auc"
+        )
+        tuner.run()
+        assert tuner.best_params_["solver"] in ("lsqr", "eigen")
+
+    def test_quniform_param_resolved_to_int_not_float(self, numeric_split):
+        """knn's "n_neighbors" search-space entry is quniform -- before the scope.int()
+        fix, hyperopt returned a float (e.g. 25.0), which sklearn 1.9's strict param
+        validation rejects for KNeighborsClassifier, failing every trial.
+        """
+        model = ModelFactory.build("classification", "knn")
+        tuner = Tuner(
+            model=model, backend="hyperopt", n_trials=3, cv=numeric_split, metric="roc_auc"
+        )
+        tuner.run()
+        assert isinstance(tuner.best_params_["n_neighbors"], int)
+
+    def test_best_trial_summary_resolves_categorical_params(self, numeric_split):
+        """best_trial_summary()'s per-trial params dict had the same raw-index bug as
+        run()'s best_params_ -- a second call site reading the same underlying
+        trials_.trials[i]["misc"]["vals"] structure.
+        """
+        model = ModelFactory.build("classification", "lda")
+        tuner = Tuner(
+            model=model, backend="hyperopt", n_trials=3, cv=numeric_split, metric="roc_auc"
+        )
+        tuner.run()
+        assert all(row["solver"] in ("lsqr", "eigen") for row in tuner.trials_dataframe_["params"])
 
 
 # ---------------------------------------------------------------------------

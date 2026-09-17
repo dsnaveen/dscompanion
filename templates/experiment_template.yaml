@@ -164,6 +164,7 @@ model:
   task: classification               # ← REQUIRED: classification | regression | clustering
   algorithm: xgboost                 # classification: xgboost | lightgbm | logistic | random_forest | gradient_boosting
                                      #                 | svm | knn | decision_tree | extra_trees | adaboost | naive_bayes
+                                     #                 | lda | qda | mlp
                                      # regression:     xgboost | lightgbm | linear | ridge | lasso | elastic_net
                                      #                 | random_forest | gradient_boosting | svm | knn | decision_tree
                                      #                 | extra_trees | adaboost

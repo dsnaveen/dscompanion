@@ -54,6 +54,23 @@ SEARCH_SPACES: dict = {
         "naive_bayes_classification": {
             "var_smoothing": {"type": "float", "low": 1e-12, "high": 1e-6, "log": True},
         },
+        "lda_classification": {
+            # svd (the sklearn default) has no shrinkage support and is excluded here —
+            # combining it with a shrinkage value raises at fit time.
+            "solver": {"type": "categorical", "choices": ["lsqr", "eigen"]},
+            "shrinkage": {"type": "float", "low": 0.0, "high": 1.0},
+        },
+        "qda_classification": {
+            "reg_param": {"type": "float", "low": 0.0, "high": 1.0},
+        },
+        "mlp_classification": {
+            "hidden_layer_sizes": {
+                "type": "categorical",
+                "choices": [(50,), (100,), (100, 50), (100, 100)],
+            },
+            "alpha": {"type": "float", "low": 1e-5, "high": 1e-1, "log": True},
+            "learning_rate_init": {"type": "float", "low": 1e-4, "high": 1e-1, "log": True},
+        },
         "lightgbm_classification": {
             "n_estimators": {"type": "int", "low": 100, "high": 1000},
             "num_leaves": {"type": "int", "low": 15, "high": 255},
@@ -186,6 +203,21 @@ SEARCH_SPACES: dict = {
         "naive_bayes_classification": {
             "var_smoothing": {"type": "loguniform", "low": 1e-12, "high": 1e-6},
         },
+        "lda_classification": {
+            "solver": {"type": "categorical", "choices": ["lsqr", "eigen"]},
+            "shrinkage": {"type": "uniform", "low": 0.0, "high": 1.0},
+        },
+        "qda_classification": {
+            "reg_param": {"type": "uniform", "low": 0.0, "high": 1.0},
+        },
+        "mlp_classification": {
+            "hidden_layer_sizes": {
+                "type": "categorical",
+                "choices": [(50,), (100,), (100, 50), (100, 100)],
+            },
+            "alpha": {"type": "loguniform", "low": 1e-5, "high": 1e-1},
+            "learning_rate_init": {"type": "loguniform", "low": 1e-4, "high": 1e-1},
+        },
         "lightgbm_classification": {
             "n_estimators": {"type": "quniform", "low": 100, "high": 1000, "q": 10},
             "num_leaves": {"type": "quniform", "low": 15, "high": 255, "q": 1},
@@ -300,6 +332,13 @@ PREDEFINED_PARAMS: dict = {
     },
     "adaboost_classification": {"n_estimators": 100, "learning_rate": 0.1},
     "naive_bayes_classification": {"var_smoothing": 1e-9},
+    "lda_classification": {"solver": "lsqr", "shrinkage": "auto"},
+    "qda_classification": {"reg_param": 0.01},
+    "mlp_classification": {
+        "hidden_layer_sizes": (100,),
+        "alpha": 1e-4,
+        "learning_rate_init": 1e-3,
+    },
     "lightgbm_classification": {
         "n_estimators": 300,
         "num_leaves": 63,

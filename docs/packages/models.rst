@@ -12,7 +12,7 @@ against and what :class:`dscompanion.Leaderboard` compares.
 Currently supported (``ModelFactory.SUPPORTED_ALGORITHMS``):
 
 - **classification**: xgboost, lightgbm, logistic, random_forest, gradient_boosting,
-  svm, knn, decision_tree, extra_trees, adaboost, naive_bayes
+  svm, knn, decision_tree, extra_trees, adaboost, naive_bayes, lda, qda, mlp
 - **regression**: xgboost, lightgbm, linear, ridge, lasso, elastic_net, random_forest,
   gradient_boosting, svm, knn, decision_tree, extra_trees, adaboost
 - **clustering**: kmeans, dbscan, hierarchical
