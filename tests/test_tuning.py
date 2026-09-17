@@ -19,6 +19,15 @@ def _optuna_available() -> bool:
         return False
 
 
+def _hyperopt_available() -> bool:
+    try:
+        import hyperopt  # noqa: F401
+
+        return True
+    except ImportError:
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -617,6 +626,7 @@ class TestTuningAcrossAllAlgorithms:
 #    via hyperopt.pyll.scope.int() in _build_hp_space.
 
 
+@pytest.mark.skipif(not _hyperopt_available(), reason="hyperopt not installed")
 class TestHyperoptBackendEndToEnd:
     @pytest.mark.parametrize(
         "algorithm",
