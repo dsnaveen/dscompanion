@@ -1,0 +1,54 @@
+name: Bug report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: >
+        A minimal code snippet (or config YAML) that reproduces the issue.
+        Avoid pasting real data — synthetic data or a shape description is fine.
+      render: python
+    validations:
+      required: false
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Error output / traceback
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: dscompanion version
+      placeholder: "e.g. 0.1.2 (pip show dscompanion)"
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "e.g. 3.12.3"
+    validations:
+      required: true
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, and whether this ran under PySpark/Databricks (if relevant).
+    validations:
+      required: false

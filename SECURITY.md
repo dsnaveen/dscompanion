@@ -2,20 +2,19 @@
 
 ## Supported Versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
-
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+dscompanion is pre-1.0 and evolving quickly. Only the latest release on
+[PyPI](https://pypi.org/project/dscompanion/) is supported with security fixes.
+Please upgrade before reporting an issue to confirm it still reproduces.
 
 ## Reporting a Vulnerability
 
-Use this section to tell people how to report a vulnerability.
+Please **do not** open a public GitHub issue for security vulnerabilities.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+Instead, use GitHub's private reporting flow:
+[Report a vulnerability](https://github.com/dsnaveen/dscompanion/security/advisories/new).
+
+If you're unable to use that, email mailtonaveenmittal@gmail.com with details.
+
+You can expect an initial response within a few days. If the report is accepted,
+a fix will be released and credited in the release notes (unless you'd prefer to
+stay anonymous); if declined, you'll get an explanation of why.
