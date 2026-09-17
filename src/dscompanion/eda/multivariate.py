@@ -116,7 +116,14 @@ class MultivariateAnalyser:
         self._vif_df = self._compute_vif(df)
         self._pca = self._fit_pca(df)
 
-        cat = split.train_X.select_dtypes(include=["object", "category"])
+        cat_cols = [
+            c
+            for c in split.train_X.columns
+            if isinstance(split.train_X[c].dtype, pd.CategoricalDtype)
+            or pd.api.types.is_object_dtype(split.train_X[c])
+            or pd.api.types.is_string_dtype(split.train_X[c])
+        ]
+        cat = split.train_X[cat_cols]
         if cat.shape[1] >= 2:
             cat = cat.dropna()
             if len(cat) > self._max_rows:
