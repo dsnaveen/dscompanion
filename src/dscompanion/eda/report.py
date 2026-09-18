@@ -842,6 +842,91 @@ class EDAReport:
         self._check_run()
         return self._bi.interaction_columns()
 
+    def export_charts(
+        self,
+        output_dir: str | Path,
+        format: str = "png",
+        dpi: int = 0,
+        bivariate_top_n: int = 0,
+        bivariate_clip_lower_pct: float = 0.05,
+        bivariate_clip_upper_pct: float = 0.05,
+        numeric_categorical_style: str = "auto",
+        numeric_interaction_trend_line: str = "loess",
+        numeric_interaction_trend_poly_degree: int = 2,
+        use_target_hue: bool = False,
+    ) -> dict[str, Path]:
+        """Save every chart category as standalone image files under ``output_dir``.
+
+        Thin public delegate over ``dscompanion.eda.chart_export.export_charts`` —
+        see that module's docstring for why this renders matplotlib/seaborn
+        figures directly (built from this report's own data-accessor
+        methods) rather than exporting the Plotly figures ``plot_distributions()``
+        etc. already return, which would require the optional ``kaleido``
+        package.
+
+        Args:
+            output_dir (str | Path): Root directory for the exported charts.
+                Populated with ``univariate/{numeric,categorical}/``,
+                ``bivariate/``, ``multivariate/`` (plus
+                ``multivariate/interactions/`` when applicable), and
+                ``missingness/`` subdirectories.
+            format (str): ``"png"`` (default) or ``"svg"``.
+            dpi (int): PNG pixel density; ``0`` uses
+                ``settings.eda_chart_export_dpi``. Ignored for SVG.
+            bivariate_top_n (int): Max features to export bivariate charts
+                for, ranked by IV; ``0`` uses
+                ``settings.eda_bivariate_chart_top_n``.
+            bivariate_clip_lower_pct (float): Lower-tail fraction clipped
+                from a numeric feature before binning it for its bivariate
+                chart. Has no effect on categorical features. Defaults to
+                ``0.05``.
+            bivariate_clip_upper_pct (float): Upper-tail fraction clipped
+                before the same binning. Defaults to ``0.05``.
+            numeric_categorical_style (str): Chart style for
+                numeric×categorical interaction pairs -- one of ``"auto"``,
+                ``"box"``, ``"violin"``, ``"strip"``, ``"mean_errorbar"``,
+                ``"kde"``. ``"auto"`` (default) adaptively resolves a single
+                style per pair based on category count and average rows per
+                category.
+            numeric_interaction_trend_line (str): Trend-line overlay for
+                numeric×numeric scatter/hexbin charts (raw/clipped variants
+                only) -- one of ``"none"``, ``"linear"``, ``"loess"``,
+                ``"polynomial"``. Defaults to ``"loess"``.
+            numeric_interaction_trend_poly_degree (int): Polynomial degree
+                used only when
+                ``numeric_interaction_trend_line="polynomial"``. Defaults to
+                ``2``.
+            use_target_hue (bool): Color numeric×numeric scatter points
+                (raw/clipped variants) and numeric×categorical
+                box/violin/strip charts by the target class. Only applied
+                when the target is binary (``train_y.nunique() == 2``) --
+                silently ignored otherwise. Defaults to ``False``.
+
+        Returns:
+            dict[str, Path]: Maps a category-relative key to the absolute
+            path written; every value exists on disk.
+
+        Raises:
+            RuntimeError: If ``run_all`` has not been called yet.
+            ValueError: If ``format`` is not ``"png"`` or ``"svg"``, or if
+                ``numeric_categorical_style`` is not a recognized style.
+        """
+        from dscompanion.eda.chart_export import export_charts as _export_charts
+
+        return _export_charts(
+            self,
+            output_dir,
+            format=format,
+            dpi=dpi,
+            bivariate_top_n=bivariate_top_n,
+            bivariate_clip_lower_pct=bivariate_clip_lower_pct,
+            bivariate_clip_upper_pct=bivariate_clip_upper_pct,
+            numeric_categorical_style=numeric_categorical_style,
+            numeric_interaction_trend_line=numeric_interaction_trend_line,
+            numeric_interaction_trend_poly_degree=numeric_interaction_trend_poly_degree,
+            use_target_hue=use_target_hue,
+        )
+
     def extreme_values(self, n: int = 0) -> dict[str, dict[str, list]]:
         """Return the smallest and largest raw values for every numeric feature.
 

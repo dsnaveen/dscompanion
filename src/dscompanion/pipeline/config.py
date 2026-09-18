@@ -345,10 +345,56 @@ class EDAConfig(BaseModel):
             building the per-feature numeric distribution histogram, so a
             few extreme values don't stretch the x-axis and flatten the
             real distribution into one bin. Chart rendering only — never
-            applied to modelling data. Defaults to ``0.01``.
+            applied to modelling data. Defaults to ``0.05``.
         chart_clip_upper_pct (float): Upper-tail fraction clipped before
             building the per-feature numeric distribution histogram.
-            Chart rendering only. Defaults to ``0.01``.
+            Chart rendering only. Defaults to ``0.05``.
+        export_charts (bool): Save every chart category (univariate,
+            bivariate, multivariate, missingness) as standalone image files
+            under ``<run_dir>/eda/`` via ``EDAReport.export_charts()``.
+            Off by default (extra disk I/O). Rendered via matplotlib/
+            seaborn — no optional dependency required. Defaults to
+            ``False``.
+        chart_export_format (str): ``"png"`` or ``"svg"`` for
+            ``export_charts``. Defaults to ``"png"``.
+        chart_export_dpi (int): Pixel density for ``export_charts``'s PNG
+            output (ignored for SVG). Defaults to ``150``.
+        bivariate_chart_top_n (int): Max features ``export_charts`` renders
+            bivariate (target-rate-by-bin) charts for, ranked by IV —
+            without a cap, a wide dataset could produce hundreds of files.
+            Defaults to ``20``.
+        bivariate_chart_clip_lower_pct (float): Lower-tail fraction clipped
+            from a numeric feature before quantile-binning it for its
+            bivariate (target-rate-by-bin) chart, so a few extreme values
+            don't distort the bin edges. Chart rendering only — never
+            applied to modelling data or to categorical features. Defaults
+            to ``0.05``.
+        bivariate_chart_clip_upper_pct (float): Upper-tail fraction clipped
+            before the same bivariate chart's binning. Defaults to
+            ``0.05``.
+        numeric_categorical_chart_style (str): Chart style for
+            ``export_charts()``'s numeric×categorical pairs. One of
+            ``"auto"`` (cardinality/sample-size adaptive — see
+            ``EDAReport.export_charts()`` for the exact resolution rule),
+            ``"box"``, ``"violin"``, ``"strip"``, ``"mean_errorbar"``, or
+            ``"kde"``. Defaults to ``"auto"``.
+        numeric_interaction_trend_line (str): Fit-line overlay added to
+            ``export_charts()``'s numeric×numeric raw/clipped scatter
+            charts. One of ``"none"``, ``"linear"``, ``"loess"``, or
+            ``"polynomial"``. Defaults to ``"loess"`` — captures
+            non-linear relationships without assuming a functional form.
+        numeric_interaction_trend_poly_degree (int): Polynomial degree used
+            when ``numeric_interaction_trend_line="polynomial"``. Ignored
+            for every other trend-line method. Defaults to ``2``
+            (quadratic — a single bend, per common regression-diagnostic
+            practice; higher orders are rarely needed).
+        use_target_hue (bool): Color ``export_charts()``'s numeric×numeric
+            scatter points and numeric×categorical box/violin/strip charts
+            by the target class. Only applied when the target is binary
+            (``train_y.nunique() == 2``) — silently ignored otherwise
+            (regression targets, multiclass, or a target with too much
+            missingness to have exactly 2 observed values). Defaults to
+            ``False``.
 
     Returns:
         EDAConfig: Validated EDA stage specification.
@@ -377,8 +423,18 @@ class EDAConfig(BaseModel):
     include_duplicate_row_content: bool = False
     include_text_sample_values: bool = False
     chart: bool = True
-    chart_clip_lower_pct: float = 0.01
-    chart_clip_upper_pct: float = 0.01
+    chart_clip_lower_pct: float = 0.05
+    chart_clip_upper_pct: float = 0.05
+    export_charts: bool = False
+    chart_export_format: str = "png"
+    chart_export_dpi: int = 150
+    bivariate_chart_top_n: int = 20
+    bivariate_chart_clip_lower_pct: float = 0.05
+    bivariate_chart_clip_upper_pct: float = 0.05
+    numeric_categorical_chart_style: str = "auto"
+    numeric_interaction_trend_line: str = "loess"
+    numeric_interaction_trend_poly_degree: int = 2
+    use_target_hue: bool = False
 
     @field_validator("skewness_alert_threshold")
     @classmethod
@@ -425,11 +481,60 @@ class EDAConfig(BaseModel):
             raise ValueError(f"value must be >= 1, got {v}")
         return v
 
-    @field_validator("chart_clip_lower_pct", "chart_clip_upper_pct")
+    @field_validator(
+        "chart_clip_lower_pct",
+        "chart_clip_upper_pct",
+        "bivariate_chart_clip_lower_pct",
+        "bivariate_chart_clip_upper_pct",
+    )
     @classmethod
     def valid_chart_clip_pct(cls, v: float) -> float:
         if not (0.0 <= v < 0.5):
             raise ValueError(f"chart clip fraction must be in [0.0, 0.5), got {v!r}")
+        return v
+
+    @field_validator("chart_export_format")
+    @classmethod
+    def valid_chart_export_format(cls, v: str) -> str:
+        if v not in ("png", "svg"):
+            raise ValueError(f"chart_export_format must be 'png' or 'svg', got {v!r}")
+        return v
+
+    @field_validator("chart_export_dpi")
+    @classmethod
+    def positive_chart_export_dpi(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"chart_export_dpi must be >= 1, got {v}")
+        return v
+
+    @field_validator("bivariate_chart_top_n")
+    @classmethod
+    def non_negative_bivariate_chart_top_n(cls, v: int) -> int:
+        if v < 0:
+            raise ValueError(f"bivariate_chart_top_n must be >= 0, got {v}")
+        return v
+
+    @field_validator("numeric_categorical_chart_style")
+    @classmethod
+    def valid_numeric_categorical_chart_style(cls, v: str) -> str:
+        valid = {"auto", "box", "violin", "strip", "mean_errorbar", "kde"}
+        if v not in valid:
+            raise ValueError(f"numeric_categorical_chart_style must be one of {valid}, got {v!r}")
+        return v
+
+    @field_validator("numeric_interaction_trend_line")
+    @classmethod
+    def valid_numeric_interaction_trend_line(cls, v: str) -> str:
+        valid = {"none", "linear", "loess", "polynomial"}
+        if v not in valid:
+            raise ValueError(f"numeric_interaction_trend_line must be one of {valid}, got {v!r}")
+        return v
+
+    @field_validator("numeric_interaction_trend_poly_degree")
+    @classmethod
+    def positive_trend_poly_degree(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"numeric_interaction_trend_poly_degree must be >= 1, got {v}")
         return v
 
 

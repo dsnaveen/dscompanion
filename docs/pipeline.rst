@@ -29,7 +29,18 @@ Stage numbers below match the ``[N/13]`` log lines emitted at INFO level during 
      - EDA
      - ``EDAReport.run_all()`` — univariate, bivariate, multivariate, missingness.
        Controlled by ``eda.*`` (see :doc:`configuration`). Skipped entirely if
-       ``eda.enabled=False``.
+       ``eda.enabled=False``. When ``eda.export_charts=True``, every chart
+       category is also saved as standalone image files under
+       ``<run_dir>/eda/`` via ``EDAReport.export_charts()`` — rendered with
+       matplotlib/seaborn (no optional dependency), independently of the
+       charts already embedded in the Excel/HTML model card. Numeric×numeric
+       scatter/hexbin charts can overlay a trend line
+       (``eda.numeric_interaction_trend_line`` — linear/loess/polynomial);
+       numeric×categorical pairs get a single cardinality-adaptive chart
+       (``eda.numeric_categorical_chart_style``, default ``"auto"``, picking
+       box/violin/strip/mean±SEM/KDE from category count and sample size);
+       binary-classification targets can optionally color these charts by
+       class (``eda.use_target_hue``). Non-fatal on failure; off by default.
    * - 4
      - Target treatment
      - Optional continuous→binary conversion via ``target.binarize_threshold``.
@@ -84,7 +95,8 @@ Stage numbers below match the ``[N/13]`` log lines emitted at INFO level during 
        together — auto-saved via ``ScoringPipeline.save()``; see :doc:`quickstart`'s
        "Scoring new data" section), ``reports/`` (Excel model card, always
        written; HTML, only when ``reporting.html_report=True``), ``logs/`` (this run's
-       captured log lines), and ``eda/`` (reserved). The resolved config is also saved as
+       captured log lines), and ``eda/`` (populated with standalone chart image files only
+       when ``eda.export_charts=True``; empty otherwise). The resolved config is also saved as
        ``<run_dir>/config.yaml``. Run tracking via
        ``dscompanion.tracking.run_context.tracking_run()`` (stdlib ``logging``, not MLflow) —
        see :doc:`packages/tracking`.

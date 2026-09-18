@@ -103,8 +103,32 @@ eda:
 
   # to_excel()-only chart controls (no effect on to_html()/to_word())
   chart: true                        # master switch for every native Excel chart
-  chart_clip_lower_pct: 0.01         # lower-tail fraction clipped before per-feature numeric histograms
-  chart_clip_upper_pct: 0.01         # upper-tail fraction clipped before per-feature numeric histograms
+  chart_clip_lower_pct: 0.05         # lower-tail fraction clipped before per-feature numeric histograms
+  chart_clip_upper_pct: 0.05         # upper-tail fraction clipped before per-feature numeric histograms
+
+  # Standalone chart export — saves every chart category as image files under <run_dir>/eda/,
+  # via EDAReport.export_charts(). Rendered with matplotlib/seaborn (already a hard dependency) —
+  # no optional package needed. Off by default (extra disk I/O).
+  export_charts: false               # true → populate <run_dir>/eda/{univariate,bivariate,multivariate,missingness}/
+  chart_export_format: png           # png | svg
+  chart_export_dpi: 150              # pixel density for PNG output (ignored for svg)
+  bivariate_chart_top_n: 20          # cap on bivariate (target-rate-by-bin) charts, ranked by IV
+  bivariate_chart_clip_lower_pct: 0.05  # lower-tail fraction clipped before bivariate binning / numeric×numeric "clipped" scatter
+  bivariate_chart_clip_upper_pct: 0.05  # upper-tail fraction clipped before the same binning/scatter
+
+  # Numeric×categorical interaction charts: one adaptive chart per pair (not one per style,
+  # to avoid multiplying export_charts()'s per-chart runtime cost).
+  numeric_categorical_chart_style: auto  # auto (adaptive, recommended) | box | violin | strip | mean_errorbar | kde
+                                          # "auto" picks a style per pair from category count and average rows/category;
+                                          # set an explicit style instead if you always want that one chart type.
+
+  # Trend-line overlay on numeric×numeric scatter/hexbin charts (raw/clipped variants only).
+  numeric_interaction_trend_line: loess     # none | linear | loess | polynomial
+  numeric_interaction_trend_poly_degree: 2  # polynomial degree, used only when trend_line=polynomial
+
+  # Binary-classification only: color numeric×numeric scatter and numeric×categorical
+  # box/violin/strip charts by the target class. Silently ignored for non-binary targets.
+  use_target_hue: false
 
 # ── Feature Engineering ───────────────────────────────────────────────────────
 features:
@@ -242,7 +266,7 @@ reporting:
 #   zscore_outlier_threshold = 3.0               # |z-score| above which a value counts as an outlier
 #   eda_histogram_bins = 40                     # bins in EDA numeric distribution histograms
 #   eda_top_categorical_values = 20             # top-N values shown in categorical EDA bar charts
-#   eda_chart_clip_lower_pct / eda_chart_clip_upper_pct = 0.01 / 0.01  # legacy duplicates of eda.chart_clip_*
+#   eda_chart_clip_lower_pct / eda_chart_clip_upper_pct = 0.05 / 0.05  # legacy duplicates of eda.chart_clip_*
 #   high_missing_threshold = 0.3                # legacy duplicate of eda.high_missing_threshold above
 #   eda_skewness_alert_threshold / eda_zero_pct_alert_threshold / eda_imbalance_alert_threshold
 #       = 1.0 / 0.05 / 0.5             # legacy duplicates of eda.*_alert_threshold above

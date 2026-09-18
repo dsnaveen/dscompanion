@@ -66,6 +66,11 @@ class PipelineRunResult:
             root directory this run's artifacts are organized under
             (``model/``, ``reports/``, ``logs/``, ``eda/`` subdirectories).
             ``run_dir.name == run_id`` always holds.
+        eda_dir (Path | None): ``<run_dir>/eda/`` populated with standalone
+            chart image files, when ``eda.export_charts=True`` (default
+            ``False``). ``None`` when disabled, EDA itself failed, or the
+            export itself failed (logged as a non-fatal warning either
+            way — never fails the run).
         log_path (Path | None): ``<run_dir>/logs/run.log`` — every INFO+
             log line the ``dscompanion`` logger emitted during this run, captured
             via a temporary ``logging.FileHandler`` attached for the
@@ -116,6 +121,7 @@ class PipelineRunResult:
     model_card: Any | None = None
     run_id: str | None = None
     run_dir: Path | None = None
+    eda_dir: Path | None = None
     log_path: Path | None = None
     scoring_pipeline_path: Path | None = None
     report_path: Path | None = None
@@ -155,6 +161,7 @@ class PipelineRunner:
         self._deviations: list[str] = []
         self._run_id: str | None = None
         self._run_dir: Path | None = None
+        self._eda_dir: Path | None = None
         self._prev_dscompanion_level: int = logging.NOTSET
 
     @classmethod
@@ -462,6 +469,7 @@ class PipelineRunner:
             model_card=model_card,
             run_id=run_id,
             run_dir=self._run_dir,
+            eda_dir=self._eda_dir,
             log_path=log_path,
             scoring_pipeline_path=scoring_pipeline_path,
             report_path=report_path,
@@ -616,10 +624,31 @@ class PipelineRunner:
             )
             report.run_all()
             logger.info("       EDA complete")
-            return report
         except Exception as exc:
             logger.warning("EDA failed (non-fatal): %s", exc)
             return None
+
+        if cfg.eda.export_charts:
+            try:
+                eda_dir = self._run_dir / "eda"
+                report.export_charts(
+                    eda_dir,
+                    format=cfg.eda.chart_export_format,
+                    dpi=cfg.eda.chart_export_dpi,
+                    bivariate_top_n=cfg.eda.bivariate_chart_top_n,
+                    bivariate_clip_lower_pct=cfg.eda.bivariate_chart_clip_lower_pct,
+                    bivariate_clip_upper_pct=cfg.eda.bivariate_chart_clip_upper_pct,
+                    numeric_categorical_style=cfg.eda.numeric_categorical_chart_style,
+                    numeric_interaction_trend_line=cfg.eda.numeric_interaction_trend_line,
+                    numeric_interaction_trend_poly_degree=cfg.eda.numeric_interaction_trend_poly_degree,
+                    use_target_hue=cfg.eda.use_target_hue,
+                )
+                self._eda_dir = eda_dir
+                logger.info("       EDA charts exported to %s", eda_dir)
+            except Exception as exc:
+                logger.warning("EDA chart export failed (non-fatal): %s", exc)
+
+        return report
 
     # ── Target binarisation ───────────────────────────────────────────────────
 

@@ -286,6 +286,17 @@ class DSCompanionConfig(BaseSettings):
     eda_text_analysis_top_n_chars: int = Field(
         20, description="Top-N character-frequency entries captured per categorical/text feature"
     )
+    eda_chart_export_dpi: int = Field(
+        150,
+        description="Pixel density for EDAReport.export_charts()'s PNG output (ignored for SVG)",
+    )
+    eda_bivariate_chart_top_n: int = Field(
+        20,
+        description=(
+            "Max features EDAReport.export_charts() renders bivariate (target-rate-by-bin) "
+            "charts for, ranked by Information Value"
+        ),
+    )
 
     # ── Feature engineering — AutoBinner ─────────────────────────────────────
     binner_n_bins: int = Field(

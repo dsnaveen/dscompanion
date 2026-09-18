@@ -574,6 +574,51 @@ class TestEDAThresholdWiring:
         assert report._extreme_values_n == settings.eda_extreme_values_n
         assert report._near_zero_variance_threshold == settings.near_zero_variance_threshold
 
+    def test_export_charts_disabled_by_default(self, data_split, tmp_path):
+        cfg = _minimal_config(data=DataConfig(path="dummy.parquet", target="target"))
+        runner = PipelineRunner(cfg)
+        runner._run_dir = tmp_path
+        runner._run_eda(data_split)
+        assert runner._eda_dir is None
+        assert list(tmp_path.iterdir()) == []
+
+    def test_export_charts_writes_files_when_enabled(self, data_split, tmp_path):
+        cfg = _minimal_config(
+            data=DataConfig(path="dummy.parquet", target="target"),
+            eda=EDAConfig(export_charts=True),
+        )
+        runner = PipelineRunner(cfg)
+        runner._run_dir = tmp_path
+        runner._run_eda(data_split)
+        assert runner._eda_dir == tmp_path / "eda"
+        assert any((tmp_path / "eda" / "univariate").rglob("*.png"))
+
+    def test_export_charts_failure_is_non_fatal(self, data_split, tmp_path, caplog):
+        from dscompanion.eda import EDAReport
+
+        cfg = _minimal_config(
+            data=DataConfig(path="dummy.parquet", target="target"),
+            eda=EDAConfig(export_charts=True),
+        )
+        runner = PipelineRunner(cfg)
+        runner._run_dir = tmp_path
+
+        original = EDAReport.export_charts
+
+        def _boom(self, *a, **kw):
+            raise RuntimeError("disk full")
+
+        EDAReport.export_charts = _boom
+        try:
+            with caplog.at_level(logging.WARNING, logger="dscompanion.pipeline.runner"):
+                report = runner._run_eda(data_split)
+        finally:
+            EDAReport.export_charts = original
+
+        assert report is not None
+        assert runner._eda_dir is None
+        assert "chart export failed" in caplog.text.lower()
+
     def test_deviation_record_has_options_default_and_user_choice(self):
         cfg = _minimal_config(eda=EDAConfig(enabled=False))
         runner = PipelineRunner(cfg)
@@ -1515,6 +1560,31 @@ class TestEndToEndPipeline:
 
     def test_html_report_not_written_by_default(self, e2e_result):
         assert e2e_result.report_path is None
+
+    # ── EDA chart export ──────────────────────────────────────────────────────
+
+    def test_eda_dir_none_by_default(self, e2e_result):
+        assert e2e_result.eda_dir is None
+
+    def test_eda_charts_written_when_export_charts_enabled(
+        self, synthetic_parquet, tmp_path_factory
+    ):
+        output_dir = tmp_path_factory.mktemp("e2e_eda_export")
+        cfg = PipelineConfig(
+            name="e2e_eda_export_test",
+            data=DataConfig(
+                path=str(synthetic_parquet), target="target", feature_columns=self._FEATURE_COLUMNS
+            ),
+            model=ModelConfig(task="classification", algorithm="xgboost"),
+            explain=ExplainConfig(shap_enabled=False),
+            eda=EDAConfig(export_charts=True),
+            reporting=ReportingConfig(output_dir=str(output_dir)),
+        )
+        result = PipelineRunner(cfg).run()
+        assert result.eda_dir is not None
+        assert result.eda_dir == result.run_dir / "eda"
+        assert any((result.eda_dir / "univariate").rglob("*.png"))
+        assert (result.eda_dir / "missingness" / "missing_values.png").exists()
 
 
 # ---------------------------------------------------------------------------

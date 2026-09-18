@@ -262,11 +262,11 @@ class ModelCard:
             fraction clipped before building the per-feature numeric
             distribution histogram, so a few extreme values don't flatten
             the real distribution into one bin. Chart rendering only —
-            never applied to modelling data. Defaults to ``0.01``, matching
+            never applied to modelling data. Defaults to ``0.05``, matching
             ``EDAConfig.chart_clip_lower_pct``.
         excel_chart_clip_upper_pct (float): ``to_excel()``-only upper-tail
             fraction clipped before building the per-feature numeric
-            distribution histogram. Defaults to ``0.01``, matching
+            distribution histogram. Defaults to ``0.05``, matching
             ``EDAConfig.chart_clip_upper_pct``.
 
     Attributes:
@@ -293,8 +293,8 @@ class ModelCard:
         decile_table: bool = True,
         raw_config_yaml: str | None = None,
         excel_charts: bool = True,
-        excel_chart_clip_lower_pct: float = 0.01,
-        excel_chart_clip_upper_pct: float = 0.01,
+        excel_chart_clip_lower_pct: float = 0.05,
+        excel_chart_clip_upper_pct: float = 0.05,
     ) -> None:
         self.model = model
         self.split = split
