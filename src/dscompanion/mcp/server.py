@@ -23,6 +23,7 @@ from pathlib import Path
 from mcp.server.fastmcp import FastMCP
 
 from dscompanion.config import settings
+from dscompanion.docs import ModelCard
 from dscompanion.eda import EDAReport
 from dscompanion.explain import SHAPExplainer
 from dscompanion.leaderboard import Leaderboard
@@ -40,6 +41,7 @@ __all__ = [
     "train_and_compare_models",
     "check_model_readiness",
     "explain_model",
+    "generate_report",
 ]
 
 mcp = FastMCP("dscompanion")
@@ -243,4 +245,44 @@ def explain_model(run_dir: str) -> dict:
         return {"top_features": importance_df.to_dict("records")}
     except Exception as exc:
         logger.warning("explain_model failed: %s", exc)
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+def generate_report(run_dir: str) -> dict:
+    """Generate a shareable, governance-ready report for a trained model.
+
+    Use this once training (and optionally readiness-checking/explaining) is
+    complete, to produce a report suitable for sharing with stakeholders.
+
+    Args:
+        run_dir (str): The run directory returned by ``train_and_compare_models``
+            -- must contain ``model.joblib`` and ``split.joblib``. The report
+            files are written into this same directory.
+
+    Returns:
+        dict: On success: ``{"excel_path": str, "html_path": str}``. On
+        failure: ``{"error": str}``.
+    """
+    try:
+        model_path = Path(run_dir) / "model.joblib"
+        split_path = Path(run_dir) / "split.joblib"
+        if not model_path.exists() or not split_path.exists():
+            return {
+                "error": (
+                    f"{run_dir!r} does not contain both model.joblib and "
+                    "split.joblib -- pass a run_dir returned by train_and_compare_models"
+                )
+            }
+
+        model = BaseDSCompanionModel.load(model_path)
+        split = load_split(split_path)
+
+        card = ModelCard(model=model, split=split).generate()
+        excel_path = card.to_excel(Path(run_dir) / "model_card.xlsx")
+        html_path = card.to_html(Path(run_dir) / "model_card.html")
+
+        return {"excel_path": str(excel_path), "html_path": str(html_path)}
+    except Exception as exc:
+        logger.warning("generate_report failed: %s", exc)
         return {"error": str(exc)}

@@ -287,3 +287,42 @@ class TestExplainModel:
         result = explain_model(str(tmp_path / "nonexistent"))
 
         assert "error" in result
+
+
+class TestGenerateReport:
+    def _trained_run_dir(self, tmp_path):
+        import numpy as np
+
+        from dscompanion.mcp.server import train_and_compare_models
+
+        rng = np.random.RandomState(3)
+        n = 200
+        df = pd.DataFrame(
+            {
+                "x1": rng.normal(size=n),
+                "x2": rng.normal(size=n),
+                "target": rng.choice([0, 1], size=n),
+            }
+        )
+        data_path = tmp_path / "data.csv"
+        df.to_csv(data_path, index=False)
+        result = train_and_compare_models(str(data_path), target="target", task="classification")
+        return result["run_dir"]
+
+    def test_returns_excel_and_html_paths(self, tmp_path):
+        from dscompanion.mcp.server import generate_report
+
+        run_dir = self._trained_run_dir(tmp_path)
+
+        result = generate_report(run_dir)
+
+        assert "error" not in result
+        assert Path(result["excel_path"]).exists()
+        assert Path(result["html_path"]).exists()
+
+    def test_missing_run_dir_returns_error(self, tmp_path):
+        from dscompanion.mcp.server import generate_report
+
+        result = generate_report(str(tmp_path / "nonexistent"))
+
+        assert "error" in result
