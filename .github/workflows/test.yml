@@ -18,7 +18,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e ".[dev,app,api,models]"
+      - run: pip install -e ".[dev,app,api,models,mcp]"
       - run: black --check .
       - run: ruff check .
       - run: pytest
