@@ -175,3 +175,76 @@ class TestTrainAndCompareModels:
         result = train_and_compare_models(data_path, target="nope", task="classification")
 
         assert "error" in result
+
+
+class TestReadinessChecks:
+    def _fitted_model_and_split(self):
+        import numpy as np
+        from sklearn.linear_model import LogisticRegression
+
+        from dscompanion.models import ClassificationModel
+        from dscompanion.split import DataSplitter
+
+        rng = np.random.RandomState(0)
+        n = 200
+        df = pd.DataFrame(
+            {
+                "x1": rng.normal(size=n),
+                "x2": rng.normal(size=n),
+                "target": rng.choice([0, 1], size=n),
+            }
+        )
+        split = DataSplitter(strategy="random", target_col="target").fit_split(df)
+        model = ClassificationModel(estimator=LogisticRegression())
+        model.fit(split.train_X, split.train_y)
+        return model, split
+
+    def test_returns_four_checks(self):
+        from dscompanion.mcp._readiness import readiness_checks
+
+        model, split = self._fitted_model_and_split()
+
+        checks = readiness_checks(model, split)
+
+        names = {c["name"] for c in checks}
+        assert names == {"leakage", "near_random", "overfitting_gap", "psi"}
+        assert all(c["status"] in {"pass", "warn", "fail"} for c in checks)
+
+
+class TestCheckModelReadiness:
+    def _trained_run_dir(self, tmp_path):
+        import numpy as np
+
+        from dscompanion.mcp.server import train_and_compare_models
+
+        rng = np.random.RandomState(1)
+        n = 200
+        df = pd.DataFrame(
+            {
+                "x1": rng.normal(size=n),
+                "x2": rng.normal(size=n),
+                "target": rng.choice([0, 1], size=n),
+            }
+        )
+        data_path = tmp_path / "data.csv"
+        df.to_csv(data_path, index=False)
+        result = train_and_compare_models(str(data_path), target="target", task="classification")
+        return result["run_dir"]
+
+    def test_returns_checklist_and_overall(self, tmp_path):
+        from dscompanion.mcp.server import check_model_readiness
+
+        run_dir = self._trained_run_dir(tmp_path)
+
+        result = check_model_readiness(run_dir)
+
+        assert "error" not in result
+        assert len(result["checks"]) == 4
+        assert result["overall"] in {"ready", "needs_review", "not_ready"}
+
+    def test_missing_run_dir_returns_error(self, tmp_path):
+        from dscompanion.mcp.server import check_model_readiness
+
+        result = check_model_readiness(str(tmp_path / "nonexistent"))
+
+        assert "error" in result

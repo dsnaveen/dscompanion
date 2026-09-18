@@ -18,19 +18,27 @@ agent needs a parseable failure it can explain to the user.
 # already works natively without the future import.
 
 import logging
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
 from dscompanion.config import settings
 from dscompanion.eda import EDAReport
 from dscompanion.leaderboard import Leaderboard
-from dscompanion.mcp._artifacts import new_run_dir, save_split
+from dscompanion.mcp._artifacts import load_split, new_run_dir, save_split
 from dscompanion.mcp._loading import load_dataframe
+from dscompanion.mcp._readiness import readiness_checks
+from dscompanion.models.base import BaseDSCompanionModel
 from dscompanion.split import DataSplitter
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["mcp", "analyze_dataset", "train_and_compare_models"]
+__all__ = [
+    "mcp",
+    "analyze_dataset",
+    "train_and_compare_models",
+    "check_model_readiness",
+]
 
 mcp = FastMCP("dscompanion")
 
@@ -147,4 +155,51 @@ def train_and_compare_models(data_path: str, target: str, task: str) -> dict:
         }
     except Exception as exc:
         logger.warning("train_and_compare_models failed: %s", exc)
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+def check_model_readiness(run_dir: str) -> dict:
+    """Check whether a trained model is ready for production deployment.
+
+    Use this after training a model (via train_and_compare_models), before
+    deploying it, to check for overfitting, instability, data leakage, and
+    near-random performance.
+
+    Args:
+        run_dir (str): The run directory returned by ``train_and_compare_models``
+            -- must contain ``model.joblib`` and ``split.joblib``.
+
+    Returns:
+        dict: On success: ``{"checks": list[dict], "overall": str}`` where each
+        check dict is ``{"name": str, "status": "pass"|"warn"|"fail", "detail":
+        str}`` and ``overall`` is ``"ready"``, ``"needs_review"``, or
+        ``"not_ready"``. On failure: ``{"error": str}``.
+    """
+    try:
+        model_path = Path(run_dir) / "model.joblib"
+        split_path = Path(run_dir) / "split.joblib"
+        if not model_path.exists() or not split_path.exists():
+            return {
+                "error": (
+                    f"{run_dir!r} does not contain both model.joblib and "
+                    "split.joblib -- pass a run_dir returned by train_and_compare_models"
+                )
+            }
+
+        model = BaseDSCompanionModel.load(model_path)
+        split = load_split(split_path)
+        checks = readiness_checks(model, split)
+
+        statuses = {c["status"] for c in checks}
+        if "fail" in statuses:
+            overall = "not_ready"
+        elif "warn" in statuses:
+            overall = "needs_review"
+        else:
+            overall = "ready"
+
+        return {"checks": checks, "overall": overall}
+    except Exception as exc:
+        logger.warning("check_model_readiness failed: %s", exc)
         return {"error": str(exc)}
