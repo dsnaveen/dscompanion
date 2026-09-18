@@ -78,7 +78,9 @@ class TestScoringRunnerEndToEnd:
         assert "probability" in result.scored_df.columns
         assert len(result.scored_df) == 300
 
-    def test_run_id_is_ist_timestamp_format(self, tmp_path, train_result, new_data_parquet):
+    def test_run_id_is_name_prefixed_timestamp_format(
+        self, tmp_path, train_result, new_data_parquet
+    ):
         import re
 
         yaml_path = _write_scoring_yaml(
@@ -87,7 +89,7 @@ class TestScoringRunnerEndToEnd:
             data={"path": str(new_data_parquet), "format": "parquet"},
         )
         result = ScoringRunner.from_yaml(yaml_path).run()
-        assert re.fullmatch(r"\d{8}_\d{6}(_[0-9a-f]{4})?", result.run_id)
+        assert re.fullmatch(r"scoring_runner_test_\d{8}_\d{6}(_[0-9a-f]{4})?", result.run_id)
         assert result.run_dir.name == result.run_id
 
     def test_check_drift_writes_drift_report(self, tmp_path, train_result, new_data_parquet):
