@@ -816,10 +816,11 @@ _ENTRIES: list[GlossaryEntry] = [
     ),
 ]
 
-assert {e.name for e in _ENTRIES} == set(TRANSFORMER_REGISTRY), (
-    "Every TRANSFORMER_REGISTRY key must have exactly one GlossaryEntry, and vice versa "
-    "— add/remove an entry above to match."
-)
+if {e.name for e in _ENTRIES} != set(TRANSFORMER_REGISTRY):
+    raise AssertionError(
+        "Every TRANSFORMER_REGISTRY key must have exactly one GlossaryEntry, and vice versa "
+        "— add/remove an entry above to match."
+    )
 
 _ENTRIES_BY_NAME: dict[str, GlossaryEntry] = {e.name: e for e in _ENTRIES}
 _NAMES_BY_CATEGORY: dict[str, list[str]] = {

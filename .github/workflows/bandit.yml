@@ -47,8 +47,12 @@ jobs:
           # tests/ excluded: B101 (assert_used) fires on every pytest `assert`, which is
           # the correct, standard pytest idiom, not a security issue -- assert is only a
           # real risk in shipped/production code (stripped by python -O), which is why
-          # src/ stays scanned.
-          excluded_paths: "tests"
+          # src/ stays scanned. MUST be "./tests", not "tests" -- confirmed locally that
+          # bandit's -x/--exclude only matches paths exactly as they appear during its
+          # own -r . recursive walk (i.e. "./tests/..."); a bare "tests" (or an absolute
+          # path) silently matches nothing and was verified NOT excluding anything in a
+          # live run (1875 of 1887 alerts were still tests/, post-"fix").
+          excluded_paths: "./tests"
           # comma-separated list of test IDs to skip
           # skips: # optional, default is DEFAULT
           # path to a .bandit file that supplies command line arguments
