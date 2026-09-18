@@ -22,13 +22,13 @@
 # should be fixed here, not worked around by deleting the validation.
 # ─────────────────────────────────────────────────────────────────────────────
 
-name: credit_risk_baseline_v1_monitoring_2026_10   # ← REQUIRED: monitoring job name
+name: my_model_baseline_v1_monitoring_2026_10   # ← REQUIRED: monitoring job name
 version: "1.0"
 
 # ← REQUIRED: same ScoringPipeline bundle used to produce scored_data below —
 # supplies the training-time reference for both the "psi" performance metric
 # (psi_reference_) and feature-level CSI (feature_reference_).
-scoring_pipeline_path: ./reports/20260101_000000/model/credit_risk_baseline_v1_v1.0_scoring_pipeline.joblib
+scoring_pipeline_path: ./reports/20260101_000000/model/my_model_baseline_v1_v1.0_scoring_pipeline.joblib
 
 # ── Scored data ──────────────────────────────────────────────────────────────
 # A past ScoringRunner output file — must contain id_columns..., "prediction",
@@ -41,9 +41,9 @@ scored_data:
 # ── Actuals data ─────────────────────────────────────────────────────────────
 # The separately-arrived actual outcomes for that same batch.
 actuals_data:
-  path: abfss://container@account.dfs.core.windows.net/actuals/2026_10_default_flags.parquet  # ← REQUIRED
+  path: abfss://container@account.dfs.core.windows.net/actuals/2026_10_actuals.parquet  # ← REQUIRED
   format: parquet
-  target_column: default_flag   # ← REQUIRED: name of the actual-outcome column in this file
+  target_column: actual_outcome   # ← REQUIRED: name of the actual-outcome column in this file
 
 # ── Raw feature data (optional — enables feature-level drift/CSI) ───────────
 # The SAME batch's raw feature data, for ScoringPipeline.compute_feature_drift().
@@ -56,12 +56,12 @@ actuals_data:
 # ← REQUIRED: join key(s) across scored_data / actuals_data / raw_data — must
 # match the id_columns used on the original ScoringRunner run (see note above).
 id_columns:
-  - application_id
+  - row_id
 
 # ── Output ────────────────────────────────────────────────────────────────────
 output:
   output_dir: ./monitoring_runs      # a timestamped <output_dir>/<run_id>/ folder is created per
-                                     # run (same IST-timestamped convention as PipelineRunner's
+                                     # run (same name-prefixed, timestamped convention as PipelineRunner's
                                      # and ScoringRunner's runs) — containing the performance
                                      # report, a copy of this resolved config, this run's log, and
                                      # feature_drift_report.<ext> when raw_data is set above.

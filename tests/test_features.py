@@ -1288,7 +1288,7 @@ class TestDistributionTransformer:
     def test_yeo_johnson_reduces_skew_on_skewed_data(self):
         # Right-skewed with a negative offset — Box-Cox couldn't handle this
         # (values <= 0), which is exactly why yeo_johnson is the recommended
-        # default over log/log1p for arbitrary-range banking numerics.
+        # default over log/log1p for arbitrary-range numeric features.
         skewed = pd.Series([1.0, 2.0, 2.0, 3.0, 3.0, 3.0, 500.0, 800.0]) - 10.0
         df = pd.DataFrame({"a": skewed})
         out = DistributionTransformer(strategy="yeo_johnson").fit_transform(df)

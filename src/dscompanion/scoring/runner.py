@@ -39,7 +39,7 @@ class ScoringRunResult:
             "prediction"`` and, for classification, ``"probability"``).
         drift_report (pd.DataFrame | None): ``ScoringPipeline.compute_drift()``'s
             output, or ``None`` when ``config.check_drift=False``.
-        run_id (str): This run's id (``yyyymmdd_hhmmss``, IST — see
+        run_id (str): This run's id (``<name>_yyyymmdd_hhmmss`` — see
             ``dscompanion.pipeline.run_utils.generate_run_id_and_dir``).
         run_dir (Path): ``<output.output_dir>/<run_id>/`` — this run's
             output directory.
@@ -70,15 +70,16 @@ class ScoringRunner:
     Loads a ``ScoringPipeline`` bundle produced by a prior ``PipelineRunner``
     run, scores new raw data against it, and writes the result into a
     timestamped ``<output.output_dir>/<run_id>/`` folder — the same
-    IST-timestamped, audited run-folder convention ``PipelineRunner`` uses
-    for training, so a scoring job is just as traceable/reproducible.
+    name-prefixed, timestamped, audited run-folder convention
+    ``PipelineRunner`` uses for training, so a scoring job is just as
+    traceable/reproducible.
 
     Args:
         config (ScoringConfig): Validated scoring configuration.
 
     Example::
 
-        result = ScoringRunner.from_yaml("scoring/credit_risk_v1_scoring.yaml").run()
+        result = ScoringRunner.from_yaml("scoring/my_model_v1_scoring.yaml").run()
         print(result.scored_df)
         print(result.output_path)
     """
@@ -126,7 +127,7 @@ class ScoringRunner:
         logger.info("ScoringRunner  |  %s  v%s", cfg.name, cfg.version)
         logger.info("=" * 60)
 
-        run_id, run_dir = generate_run_id_and_dir(cfg.output.output_dir)
+        run_id, run_dir = generate_run_id_and_dir(cfg.output.output_dir, name=cfg.name)
         run_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Run directory: %s", run_dir)
 

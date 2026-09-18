@@ -681,8 +681,9 @@ class DistributionConfig(BaseModel):
         strategy (str): Transform to apply. One of ``"none"`` (default),
             ``"log"`` (requires every value strictly positive), ``"log1p"``
             (requires every value > -1), or ``"yeo_johnson"`` (handles zero
-            and negative values — the right default for skewed banking
-            numerics like balance or income that can go negative).
+            and negative values — the right default for skewed numeric
+            features, e.g. a balance or income-like value, that can go
+            negative).
 
     Returns:
         DistributionConfig: Validated distribution-transform specification.
@@ -1189,10 +1190,10 @@ class PipelineConfig(BaseModel):
 
     Minimum viable YAML (everything else defaults)::
 
-        name: credit_risk_v1
+        name: my_model_v1
         data:
-          path: abfss://container@account.dfs.core.windows.net/features/credit.parquet
-          target: default_flag
+          path: abfss://container@account.dfs.core.windows.net/features/my_data.parquet
+          target: target_column
         model:
           task: classification
 
@@ -1202,7 +1203,7 @@ class PipelineConfig(BaseModel):
         version (str): Experiment version string.  Defaults to ``"1.0"``.
         description (str): Free-text description of what this experiment
             tests.  Defaults to empty string.
-        owner (str): Scientist name or UCIC.  Included in the model card.
+        owner (str): Scientist name.  Included in the model card.
             Defaults to empty string.
         data (DataConfig): Data source specification.  Required.
         split (SplitConfig): Train/val/test split configuration.

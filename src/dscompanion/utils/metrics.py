@@ -500,9 +500,9 @@ def decile_table(
 
     Sorts observations by predicted probability in descending order, splits
     them into ``n_bins`` equal-sized groups by rank (decile 1 = highest
-    predicted risk/response), and computes per-decile and cumulative event
-    capture statistics — the standard credit-risk and marketing-response
-    model validation table. Ranking by row position (not by probability
+    predicted probability), and computes per-decile and cumulative event
+    capture statistics — a standard binary-classification model validation
+    table. Ranking by row position (not by probability
     value) avoids uneven bin sizes when many observations share the same
     predicted probability, a common occurrence with tree-based models.
 

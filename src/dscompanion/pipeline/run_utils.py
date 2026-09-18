@@ -6,6 +6,7 @@ get the identical, audited run-folder convention.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -15,14 +16,32 @@ from dscompanion.config import settings
 
 __all__ = ["generate_run_id_and_dir", "attach_run_log_handler", "detach_run_log_handler"]
 
+_NON_WORD_CHARS = re.compile(r"[^A-Za-z0-9_]+")
 
-def generate_run_id_and_dir(output_dir: str | Path) -> tuple[str, Path]:
+
+def _sanitize_name_prefix(name: str) -> str:
+    """Reduces a free-form project/experiment name to a filesystem- and
+    shell-safe run-folder prefix — letters, digits, and underscores only.
+
+    Args:
+        name (str): The raw, user-supplied config ``name`` field.
+
+    Returns:
+        str: ``name`` with every run of non-alphanumeric/underscore
+        characters collapsed to a single ``_`` and leading/trailing
+        underscores stripped. Empty (e.g. ``name`` was blank or entirely
+        special characters) when no safe prefix can be derived.
+    """
+    return _NON_WORD_CHARS.sub("_", name).strip("_")
+
+
+def generate_run_id_and_dir(output_dir: str | Path, name: str | None = None) -> tuple[str, Path]:
     """Generate a fresh, collision-safe run id and its output directory.
 
     Uses ``yyyymmdd_hhmmss`` rather than a random uuid — sortable
     chronologically in a Workspace file browser, and directly readable as
     "when did this run happen" without opening it. Timestamped in
-    ``settings.run_id_timezone`` (defaults to IST) rather than the running
+    ``settings.run_id_timezone`` (defaults to UTC) rather than the running
     machine's local time, so run folder names read consistently whether the
     pipeline runs on a local laptop or a UTC-default cluster. Only appends a
     short random disambiguating suffix in the rare case two runs start in
@@ -32,6 +51,15 @@ def generate_run_id_and_dir(output_dir: str | Path) -> tuple[str, Path]:
     Args:
         output_dir (str | Path): Root directory this run's output lives
             under.
+        name (str | None): Project/experiment name (a config's ``name``
+            field) to prefix the run id with, e.g. ``my_model_v1_
+            20260918_143022`` instead of just ``20260918_143022`` — makes
+            run folders identifiable at a glance when several projects
+            share the same ``output_dir``. Sanitized to letters, digits,
+            and underscores only (any other character, including spaces
+            and path separators, is collapsed to ``_``); omitted from the
+            run id entirely when ``None``, blank, or reduces to nothing
+            after sanitization.
 
     Returns:
         tuple[str, Path]: ``(run_id, run_dir)`` — ``run_dir`` is always
@@ -43,7 +71,9 @@ def generate_run_id_and_dir(output_dir: str | Path) -> tuple[str, Path]:
             valid IANA timezone name.
     """
     output_dir = Path(output_dir)
-    run_id = datetime.now(ZoneInfo(settings.run_id_timezone)).strftime("%Y%m%d_%H%M%S")
+    timestamp = datetime.now(ZoneInfo(settings.run_id_timezone)).strftime("%Y%m%d_%H%M%S")
+    prefix = _sanitize_name_prefix(name) if name else ""
+    run_id = f"{prefix}_{timestamp}" if prefix else timestamp
     run_dir = output_dir / run_id
     if run_dir.exists():
         run_id = f"{run_id}_{uuid.uuid4().hex[:4]}"

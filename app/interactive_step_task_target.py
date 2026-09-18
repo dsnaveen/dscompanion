@@ -11,8 +11,8 @@ not yet defined — see streamlit.md). Strict binary classification rules:
 If any rule is violated, Step 2 blocks with a clear error and recovery
 options — no silent fixes or remapping UI.
 
-Also collects customer unique identifier columns (e.g. UCIC ID, account
-number) here, alongside the target, so they can be excluded from modelling
+Also collects unique identifier columns (e.g. a customer/account ID) here,
+alongside the target, so they can be excluded from modelling
 everywhere downstream — Step 4's EDA, Step 5's missing-value table, and
 the final feature list.
 

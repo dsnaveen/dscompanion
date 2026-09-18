@@ -8,8 +8,8 @@ re-exported at the top level; ``MonitoringActualsConfig``/``MonitoringOutputConf
 ``MonitoringConfig``'s nested sections, are not — see ``MonitoringConfig`` itself for
 their fields).
 
-``MonitoringConfig``/``MonitoringRunner`` are the third pillar of the scorecard lifecycle,
-after training (:doc:`pipeline_pkg`) and scoring (:doc:`scoring`) — see :doc:`../quickstart`'s
+``MonitoringConfig``/``MonitoringRunner`` are the third pillar of the train/score/monitor
+lifecycle, after training (:doc:`pipeline_pkg`) and scoring (:doc:`scoring`) — see :doc:`../quickstart`'s
 "Monitoring" section and ``templates/monitoring_template.yaml``. A monitoring run joins a
 past :class:`~dscompanion.ScoringRunner` output file (``scored_data``) with a
 separately-arrived actuals file (``actuals_data``) by ``id_columns``, re-measures
@@ -24,8 +24,8 @@ older model version), not a re-prediction with the current model — this is why
 join key available between the scored output and the actuals that arrived later.
 
 ``MonitoringRunner.from_yaml(path).run()`` writes the result into a timestamped
-``<output.output_dir>/<run_id>/`` folder — the same IST-timestamped, audited run-folder
-convention ``PipelineRunner``/``ScoringRunner`` use for training/scoring.
+``<output.output_dir>/<run_id>/`` folder — the same name-prefixed, timestamped, audited
+run-folder convention ``PipelineRunner``/``ScoringRunner`` use for training/scoring.
 
 This is a single point-in-time snapshot report per run — there is no persistent
 longitudinal history store for tracking metrics across many monitoring runs over time

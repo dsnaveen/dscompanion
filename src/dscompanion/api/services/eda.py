@@ -39,7 +39,7 @@ def _exclude_identifier_columns(split: DataSplit, identifier_columns: list[str])
     """Returns a copy of ``split`` with identifier columns dropped from every X partition.
 
     Direct port of ``interactive_step4.py``'s helper of the same name — identifier
-    columns (e.g. UCIC ID, account number) chosen at Step 2 are never useful for EDA.
+    columns (e.g. a customer/account ID) chosen at Step 2 are never useful for EDA.
 
     Args:
         split (DataSplit): Split confirmed at Step 3.

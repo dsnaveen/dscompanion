@@ -77,15 +77,15 @@ class MonitoringConfig(BaseModel):
 
     Minimum viable YAML (everything else defaults)::
 
-        name: credit_risk_v1_monitoring
+        name: my_model_v1_monitoring
         scoring_pipeline_path: ./reports/20260101_000000/model/v1.0_scoring_pipeline.joblib
         scored_data:
           path: ./scoring_runs/20260901_120000/scored.parquet
         actuals_data:
-          path: abfss://container@account.dfs.core.windows.net/actuals/default_flags.parquet
-          target_column: default_flag
+          path: abfss://container@account.dfs.core.windows.net/actuals/actuals.parquet
+          target_column: actual_outcome
         id_columns:
-          - application_id
+          - row_id
 
     Args:
         name (str): Monitoring job name. Used as the run name. Required.

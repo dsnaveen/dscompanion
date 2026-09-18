@@ -1,11 +1,11 @@
 dscompanion documentation
 =====================
 
-**dscompanion** is an internal ML acceleration package for banking analytics —
-a production-grade toolkit covering the full lifecycle of a credit-risk / marketing
-classification model: data splitting, EDA, feature engineering, feature selection,
-model training (including a PyCaret/H2O-style algorithm leaderboard), hyperparameter
-tuning, calibration, explainability, and a governance-ready model card.
+**dscompanion** is a production-grade ML pipeline toolkit for tabular data — covering
+the full lifecycle of a classification, regression, or clustering model: data splitting,
+EDA, feature engineering, feature selection, model training (including a PyCaret/
+H2O-style algorithm leaderboard), hyperparameter tuning, calibration, explainability,
+and a governance-ready model card.
 
 It is designed around a "first model in under a day" principle: every stage has a
 production-safe default, every default is overridable, and the entire pipeline can be

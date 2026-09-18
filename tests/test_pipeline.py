@@ -426,10 +426,10 @@ class TestGenerateRunIdAndDir:
         assert run_id_2.startswith(run_id + "_")
         assert not run_dir_2.exists()
 
-    def test_defaults_to_ist(self):
+    def test_defaults_to_utc(self):
         from dscompanion.config import settings
 
-        assert settings.run_id_timezone == "Asia/Kolkata"
+        assert settings.run_id_timezone == "UTC"
 
     def test_uses_configured_timezone(self, tmp_path, monkeypatch):
         import dscompanion.pipeline.run_utils as run_utils_module
@@ -456,6 +456,31 @@ class TestGenerateRunIdAndDir:
         runner = PipelineRunner(_minimal_config())
         with pytest.raises(ZoneInfoNotFoundError):
             runner._generate_run_id_and_dir(tmp_path)
+
+    def test_name_is_prefixed(self, tmp_path):
+        runner = PipelineRunner(_minimal_config())
+        run_id, run_dir = runner._generate_run_id_and_dir(tmp_path, name="my_first_model")
+        assert re.fullmatch(r"my_first_model_\d{8}_\d{6}", run_id)
+        assert run_dir == tmp_path / run_id
+
+    def test_name_special_characters_are_sanitized(self, tmp_path):
+        runner = PipelineRunner(_minimal_config())
+        run_id, _ = runner._generate_run_id_and_dir(tmp_path, name="My Model! v1.0 (beta)")
+        assert re.fullmatch(r"My_Model_v1_0_beta_\d{8}_\d{6}", run_id)
+
+    def test_blank_or_none_name_has_no_prefix(self, tmp_path):
+        runner = PipelineRunner(_minimal_config())
+        run_id_none, _ = runner._generate_run_id_and_dir(tmp_path, name=None)
+        run_id_blank, _ = runner._generate_run_id_and_dir(tmp_path / "b", name="   ")
+        assert re.fullmatch(r"\d{8}_\d{6}", run_id_none)
+        assert re.fullmatch(r"\d{8}_\d{6}", run_id_blank)
+
+    def test_pipeline_run_uses_config_name_as_prefix(self, tmp_path):
+        cfg = _minimal_config()
+        runner = PipelineRunner(cfg)
+        run_id, run_dir = runner._generate_run_id_and_dir(tmp_path, name=cfg.name)
+        assert run_id.startswith(f"{cfg.name}_")
+        assert run_dir.parent == tmp_path
 
 
 # ---------------------------------------------------------------------------
@@ -1435,8 +1460,8 @@ class TestEndToEndPipeline:
     def test_run_produces_a_real_run_id(self, e2e_result):
         assert e2e_result.run_id is not None
         assert e2e_result.run_id != "noop-run-id"
-        # yyyymmdd_hhmmss — sortable in a Workspace file browser, not uuid4().hex
-        assert re.fullmatch(r"\d{8}_\d{6}(_[0-9a-f]{4})?", e2e_result.run_id)
+        # <config.name>_yyyymmdd_hhmmss — sortable in a Workspace file browser, not uuid4().hex
+        assert re.fullmatch(r"e2e_test_\d{8}_\d{6}(_[0-9a-f]{4})?", e2e_result.run_id)
 
     def test_elapsed_time_is_positive(self, e2e_result):
         assert e2e_result.elapsed_seconds > 0

@@ -87,7 +87,7 @@ class ScoringConfig(BaseModel):
 
     Minimum viable YAML (everything else defaults)::
 
-        name: credit_risk_v1_scoring
+        name: my_model_v1_scoring
         scoring_pipeline_path: ./reports/20260101_000000/model/v1.0_scoring_pipeline.joblib
         data:
           path: abfss://container@account.dfs.core.windows.net/features/new_applications.parquet

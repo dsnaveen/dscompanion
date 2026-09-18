@@ -69,8 +69,8 @@ class GlossaryEntry:
 
 
 # ---------------------------------------------------------------------------
-# Demo datasets — small, banking-flavored, shared across entries where the
-# same shape/values usefully illustrate more than one transform.
+# Demo datasets — small, finance-style numeric examples (balance, income), shared
+# across entries where the same shape/values usefully illustrate more than one transform.
 # ---------------------------------------------------------------------------
 
 
@@ -102,39 +102,39 @@ def _demo_age() -> tuple[pd.DataFrame, None]:
 
 def _demo_age_with_target() -> tuple[pd.DataFrame, pd.Series]:
     X = pd.DataFrame({"age": [22, 25, 29, 33, 38, 45, 52, 61, 68, 75]})
-    y = pd.Series([1, 1, 1, 1, 0, 0, 0, 0, 0, 0], name="default_flag")
+    y = pd.Series([1, 1, 1, 1, 0, 0, 0, 0, 0, 0], name="target")
     return X, y
 
 
 def _demo_segment() -> tuple[pd.DataFrame, None]:
-    seg = ["retail", "retail", "retail", "premium", "premium", "mass_affluent"]
+    seg = ["group_a", "group_a", "group_a", "group_b", "group_b", "group_c"]
     return pd.DataFrame({"segment": seg}), None
 
 
 def _demo_segment_with_target() -> tuple[pd.DataFrame, pd.Series]:
     seg = [
-        "retail",
-        "retail",
-        "retail",
-        "premium",
-        "premium",
-        "mass_affluent",
-        "mass_affluent",
-        "retail",
+        "group_a",
+        "group_a",
+        "group_a",
+        "group_b",
+        "group_b",
+        "group_c",
+        "group_c",
+        "group_a",
     ]
     X = pd.DataFrame({"segment": seg})
-    y = pd.Series([1, 1, 0, 0, 0, 1, 0, 1], name="default_flag")
+    y = pd.Series([1, 1, 0, 0, 0, 1, 0, 1], name="target")
     return X, y
 
 
 def _demo_segment_with_rare() -> tuple[pd.DataFrame, None]:
-    seg = ["retail", "retail", "retail", "retail", "premium", "premium", "niche"]
+    seg = ["group_a", "group_a", "group_a", "group_a", "group_b", "group_b", "group_rare"]
     return pd.DataFrame({"segment": seg}), None
 
 
 def _demo_high_cardinality_with_target() -> tuple[pd.DataFrame, pd.Series]:
-    X = pd.DataFrame({"branch_code": ["B01", "B02", "B03", "B01", "B04", "B02", "B05", "B01"]})
-    y = pd.Series([1, 0, 1, 1, 0, 0, 1, 1], name="default_flag")
+    X = pd.DataFrame({"location_code": ["L01", "L02", "L03", "L01", "L04", "L02", "L05", "L01"]})
+    y = pd.Series([1, 0, 1, 1, 0, 0, 1, 1], name="target")
     return X, y
 
 
@@ -407,7 +407,7 @@ _ENTRIES: list[GlossaryEntry] = [
         what_it_does=(
             "A more flexible version of log/log1p that automatically learns the best power "
             "transform for each column and works natively on zero and negative values — the "
-            "right default for skewed banking numerics like balance or income when you're not "
+            "right default for skewed numeric features like balance or income when you're not "
             "sure the column is always positive."
         ),
         formula_kind="text",
@@ -689,8 +689,8 @@ _ENTRIES: list[GlossaryEntry] = [
         category="Categorical encoding",
         what_it_does=(
             "Replaces each category (or numeric bucket) with how much more or less likely the "
-            "outcome is for rows in that group, compared to the overall average — a standard "
-            "credit-scoring technique that also produces an Information Value ranking the "
+            "outcome is for rows in that group, compared to the overall average — a widely used "
+            "encoding technique that also produces an Information Value ranking the "
             "column's predictive power."
         ),
         formula_kind="latex",

@@ -519,7 +519,7 @@ def _render_multivariate_eda(report: EDAReport) -> None:
 def _exclude_identifier_columns(split: DataSplit, identifier_columns: list[str]) -> DataSplit:
     """Returns a copy of ``split`` with identifier columns dropped from every X partition.
 
-    Identifier columns (e.g. UCIC ID, account number) chosen at Step 2 are
+    Identifier columns (e.g. a customer/account ID) chosen at Step 2 are
     never useful for EDA — analyzing them wastes screen space at best and
     triggers spurious HIGH_CARDINALITY/leakage-style alerts at worst. App-layer
     transformation only; ``dscompanion.split.DataSplit`` itself is untouched.

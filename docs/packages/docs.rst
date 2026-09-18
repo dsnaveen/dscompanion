@@ -13,8 +13,9 @@ feature inventory, performance metrics, decile table, stability, calibration,
 explainability, hyperparameter tuning, leaderboard, limitations, governance, full
 config). Renders via four independent methods:
 
-- ``to_html(path)`` — Jinja2 template (``"generic"`` or ``"credit_risk"``), self-contained
-  (Bootstrap + Plotly inlined).
+- ``to_html(path)`` — hand-built HTML/inline-SVG widgets (no Jinja2 template, no
+  ``template=`` argument), self-contained (Bootstrap CSS/JS embedded inline, falling
+  back to a CDN reference if the fetch fails).
 - ``to_word(path)`` — ``.docx``, one heading + table per section, generic (no per-section
   custom rendering).
 - ``to_excel(path)`` — one worksheet per section plus a navigable ``Index`` sheet and

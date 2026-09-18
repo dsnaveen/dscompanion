@@ -161,7 +161,7 @@ class EDAReport:
 
     Example::
 
-        report = EDAReport(split, target="default_flag").run_all()
+        report = EDAReport(split, target="target_column").run_all()
         report.to_html("eda.html")
         print(report.recommended_drops)
     """

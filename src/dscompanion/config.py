@@ -39,7 +39,7 @@ class DSCompanionConfig(BaseSettings):
             randomness is required.  Defaults to ``42``.
         run_id_timezone (str): IANA timezone name used to timestamp
             ``PipelineRunner``'s ``run_id`` and run directory.  Defaults to
-            ``"Asia/Kolkata"`` (IST).
+            ``"UTC"``.
         high_cardinality_threshold (int): Number of unique values above which
             a categorical column is considered high-cardinality during EDA.
             Defaults to ``50``.
@@ -90,13 +90,12 @@ class DSCompanionConfig(BaseSettings):
 
     # ── Run identity ─────────────────────────────────────────────────────────
     run_id_timezone: str = Field(
-        "Asia/Kolkata",
+        "UTC",
         description=(
             "IANA timezone name used to timestamp PipelineRunner's run_id "
-            "(yyyymmdd_hhmmss) and run directory. Defaults to IST so run "
-            "folders read consistently regardless of which machine (local "
-            "Mac vs. a UTC-default cluster) generated them. Override via "
-            "DSCOMPANION_RUN_ID_TIMEZONE."
+            "(yyyymmdd_hhmmss) and run directory. Defaults to UTC so run "
+            "folders read consistently regardless of which machine or "
+            "region generated them. Override via DSCOMPANION_RUN_ID_TIMEZONE."
         ),
     )
 

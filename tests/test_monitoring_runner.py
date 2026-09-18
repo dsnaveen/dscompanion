@@ -119,7 +119,7 @@ class TestMonitoringRunnerEndToEnd:
         assert result.n_scored_rows == 300
         assert result.n_matched_rows == 300
 
-    def test_run_id_is_ist_timestamp_format(
+    def test_run_id_is_name_prefixed_timestamp_format(
         self, tmp_path, train_result, scored_parquet, actuals_parquet
     ):
         yaml_path = _write_monitoring_yaml(
@@ -127,7 +127,7 @@ class TestMonitoringRunnerEndToEnd:
             **_base_config(train_result, scored_parquet, actuals_parquet),
         )
         result = MonitoringRunner.from_yaml(yaml_path).run()
-        assert re.fullmatch(r"\d{8}_\d{6}(_[0-9a-f]{4})?", result.run_id)
+        assert re.fullmatch(r"monitoring_runner_test_\d{8}_\d{6}(_[0-9a-f]{4})?", result.run_id)
         assert result.run_dir.name == result.run_id
 
     def test_feature_drift_report_present_when_raw_data_set(

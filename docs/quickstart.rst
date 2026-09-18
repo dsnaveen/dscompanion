@@ -17,7 +17,7 @@ everything else has a production-safe default. See :doc:`pipeline` for what each
 
    from dscompanion.pipeline import PipelineRunner
 
-   result = PipelineRunner.from_yaml("experiments/credit_risk_v1.yaml").run()
+   result = PipelineRunner.from_yaml("experiments/my_model_v1.yaml").run()
 
    print(result.metrics)                 # per-split metrics (train/val/test/oot)
    print(result.model)                   # fitted BaseDSCompanionModel subclass
@@ -44,7 +44,7 @@ Every stage is also usable directly, sklearn-style (``fit`` / ``transform`` /
    import dscompanion as ml
    import pandas as pd
 
-   df = pd.read_parquet("data/credit_applications.parquet")
+   df = pd.read_parquet("data/my_data.parquet")
 
    # 1. Split — temporal, with an out-of-time holdout. snapshot_date holds a
    #    small number of discrete monthly values; the newest is always OOT,
@@ -54,11 +54,11 @@ Every stage is also usable directly, sklearn-style (``fit`` / ``transform`` /
    split = ml.DataSplitter(
        strategy="temporal",
        date_col="snapshot_date",
-       target_col="default_flag",
+       target_col="target_column",
    ).fit_split(df)
 
    # 2. EDA — univariate, bivariate, multivariate in one call
-   eda = ml.EDAReport(split, target="default_flag").run_all()
+   eda = ml.EDAReport(split, target="target_column").run_all()
    eda.to_html("outputs/eda.html")
 
    # 3. Feature processing — impute, encode, scale, leakage check
@@ -94,9 +94,8 @@ Every stage is also usable directly, sklearn-style (``fit`` / ``transform`` /
        split=split,
        explainer=explainer,
        calibrator=calibrator,
-       template="credit_risk",
        author="Your Name",
-       use_case="PD estimation for retail credit applications",
+       use_case="Binary classification model",
    ).generate()
    card.to_html("outputs/model_card.html")
    card.to_excel("outputs/model_card.xlsx")
@@ -120,9 +119,9 @@ Load the bundle in any later process and call ``predict`` on new, raw, unseen da
 
    scoring_pipeline = ScoringPipeline.load(result.scoring_pipeline_path)
 
-   new_df = pd.read_parquet("data/credit_applications_2026_10.parquet")
-   scored = scoring_pipeline.predict(new_df, id_columns=["application_id"])
-   # columns: application_id, prediction, probability (classification only)
+   new_df = pd.read_parquet("data/new_batch_2026_10.parquet")
+   scored = scoring_pipeline.predict(new_df, id_columns=["row_id"])
+   # columns: row_id, prediction, probability (classification only)
 
    # Single-record scoring — the natural binding for a future real-time API call
    one_result = scoring_pipeline.predict_one(new_df.iloc[0].to_dict())
@@ -144,8 +143,8 @@ Batch scoring via YAML
 
 For a recurring batch scoring job (e.g. a scheduled Databricks notebook/job), copy
 ``templates/scoring_template.yaml`` instead of writing the Python above by hand — it gives you
-the same versioned, reviewable, re-runnable config file the training side has, plus an
-IST-timestamped, audited output run folder (scored file, a copy of the resolved config, a run
+the same versioned, reviewable, re-runnable config file the training side has, plus a
+timestamped, audited output run folder (scored file, a copy of the resolved config, a run
 log, and an optional drift report), mirroring :class:`~dscompanion.PipelineRunner`'s run-folder
 convention:
 
@@ -153,7 +152,7 @@ convention:
 
    from dscompanion.scoring import ScoringRunner
 
-   result = ScoringRunner.from_yaml("scoring/credit_risk_v1_scoring.yaml").run()
+   result = ScoringRunner.from_yaml("scoring/my_model_v1_scoring.yaml").run()
 
    print(result.scored_df)          # same shape as ScoringPipeline.predict()'s return value
    print(result.output_path)        # <output.output_dir>/<run_id>/scored.parquet
@@ -162,8 +161,8 @@ convention:
 Monitoring
 -----------
 
-Once a scored batch's actual outcome (target) arrives — the third leg of the scorecard
-lifecycle, after training and scoring — ``MonitoringConfig``/``MonitoringRunner`` join that
+Once a scored batch's actual outcome (target) arrives — the third leg of the
+train/score/monitor lifecycle, after training and scoring — ``MonitoringConfig``/``MonitoringRunner`` join that
 past scored output with a separately-arrived actuals file, re-measure performance against
 the actual outcome, and (optionally) check feature-level drift (CSI — Characteristic
 Stability Index) against the training reference. Copy ``templates/monitoring_template.yaml``:
@@ -172,7 +171,7 @@ Stability Index) against the training reference. Copy ``templates/monitoring_tem
 
    from dscompanion.monitoring import MonitoringRunner
 
-   result = MonitoringRunner.from_yaml("monitoring/credit_risk_v1_monitoring.yaml").run()
+   result = MonitoringRunner.from_yaml("monitoring/my_model_v1_monitoring.yaml").run()
 
    print(result.performance_report)      # re-measured metrics — same formulas evaluate() uses
    print(result.feature_drift_report)    # populated only when raw_data is set in the YAML

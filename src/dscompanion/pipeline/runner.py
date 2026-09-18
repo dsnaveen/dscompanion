@@ -150,7 +150,7 @@ class PipelineRunner:
 
     Example::
 
-        result = PipelineRunner.from_yaml("experiments/credit_risk_v1.yaml").run()
+        result = PipelineRunner.from_yaml("experiments/my_model_v1.yaml").run()
         print(result.metrics)
     """
 
@@ -180,7 +180,9 @@ class PipelineRunner:
         """
         return cls(PipelineConfig.from_yaml(path))
 
-    def _generate_run_id_and_dir(self, output_dir: str | Path) -> tuple[str, Path]:
+    def _generate_run_id_and_dir(
+        self, output_dir: str | Path, name: str | None = None
+    ) -> tuple[str, Path]:
         """Generate a fresh, collision-safe run id and its output directory.
 
         Thin wrapper around ``dscompanion.pipeline.run_utils.generate_run_id_and_dir``
@@ -190,6 +192,8 @@ class PipelineRunner:
         Args:
             output_dir (str | Path): Root directory this run's output lives
                 under (``cfg.reporting.output_dir``).
+            name (str | None): Project/experiment name (``cfg.name``) to
+                prefix the run id with. Defaults to ``None`` (no prefix).
 
         Returns:
             tuple[str, Path]: ``(run_id, run_dir)``.
@@ -198,7 +202,7 @@ class PipelineRunner:
             ZoneInfoNotFoundError: If ``settings.run_id_timezone`` is not a
                 valid IANA timezone name.
         """
-        return generate_run_id_and_dir(output_dir)
+        return generate_run_id_and_dir(output_dir, name=name)
 
     def run(self) -> PipelineRunResult:
         """Execute all pipeline stages and return a fully populated ``PipelineRunResult``.
@@ -250,7 +254,9 @@ class PipelineRunner:
         # save, report write, log capture) writes into the same tree. The
         # same id is threaded into tracking_run() at the end (_log_and_write)
         # rather than letting it mint a second, different one.
-        self._run_id, self._run_dir = self._generate_run_id_and_dir(cfg.reporting.output_dir)
+        self._run_id, self._run_dir = self._generate_run_id_and_dir(
+            cfg.reporting.output_dir, name=cfg.name
+        )
         for subdir in ("model", "reports", "logs", "eda"):
             (self._run_dir / subdir).mkdir(parents=True, exist_ok=True)
         logger.info("Run directory: %s", self._run_dir)

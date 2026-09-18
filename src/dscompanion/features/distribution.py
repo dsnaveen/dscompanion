@@ -56,8 +56,8 @@ class DistributionTransformer(BaseEstimator, TransformerMixin):
               nonzero; raises at ``fit()`` otherwise.
             - ``"yeo_johnson"`` — sklearn's ``PowerTransformer``, a per-column
               MLE-fitted power transform that handles zero and negative values
-              natively. The right default for skewed banking numerics (balance,
-              income) that Box-Cox can't handle.
+              natively. The right default for skewed numeric features (e.g.
+              balance or income-like values) that Box-Cox can't handle.
             - ``"quantile_uniform"`` — sklearn's ``QuantileTransformer``
               (``output_distribution="uniform"``), mapping the column to a
               uniform ``[0, 1]`` distribution via its training-data rank.

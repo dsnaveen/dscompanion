@@ -14,22 +14,22 @@
 # around by deleting the validation.
 # ─────────────────────────────────────────────────────────────────────────────
 
-name: credit_risk_baseline_v1        # ← REQUIRED: experiment name (used in run name + report title)
+name: my_model_baseline_v1        # ← REQUIRED: experiment name (used in run name + report title)
 version: "1.0"
-description: "First baseline on feature store output — Logistic + XGBoost comparison"
-owner: "scientist_name"              # your name / UCIC — appears in model card
+description: "First baseline — Logistic + XGBoost comparison"
+owner: "scientist_name"              # your name — appears in model card
 
 # ── Data ─────────────────────────────────────────────────────────────────────
 data:
-  path: abfss://container@account.dfs.core.windows.net/features/credit_risk.parquet  # ← REQUIRED
+  path: abfss://container@account.dfs.core.windows.net/features/my_data.parquet  # ← REQUIRED
   format: parquet                    # parquet | csv | excel | delta
-  target: default_flag               # ← REQUIRED: column name of the target variable
+  target: target_column              # ← REQUIRED: column name of the target variable
   # feature_columns:                 # optional allowlist: use only these columns; default = all except target
-  #   - age_band
-  #   - income_segment
-  #   - utilisation_ratio
+  #   - feature_a
+  #   - feature_b
+  #   - feature_c
   # ignore_columns:                  # optional denylist: drop these, keep everything else — mutually
-  #   - customer_id                  # exclusive with feature_columns (set at most one); cannot include
+  #   - row_id                       # exclusive with feature_columns (set at most one); cannot include
   #   - internal_notes                # target or date_column
   # date_column: snapshot_month      # required only when split.method = temporal — expects a small
                                       # number of discrete snapshot values (e.g. monthly/quarterly
@@ -60,7 +60,7 @@ split:
   method: stratified                 # stratified | random | temporal | grouped
   test_size: 0.2                     # fraction of full dataset held out for test
   val_size: 0.1                      # fraction of training set used for validation
-  # group_column: customer_id        # required only when method = grouped
+  # group_column: entity_id          # required only when method = grouped
   # date_value_roles:                # method = temporal only. With 2-4 distinct data.date_column
   #   train:                         # values, this is optional — the newest value is always OOT and
   #     - "2024-01"                  # the rest are assigned automatically (see DataSplitter's
@@ -327,6 +327,6 @@ reporting:
 #   random_state = 42                             # seed used wherever dscompanion code accepts random_state
 #
 # run identity (PipelineRunner._generate_run_id_and_dir)
-#   run_id_timezone = "Asia/Kolkata"               # IANA tz for the run_id/run_dir timestamp (default: IST) —
+#   run_id_timezone = "UTC"                        # IANA tz for the run_id/run_dir timestamp (default: UTC) —
 #                                                  # override via env var DSCOMPANION_RUN_ID_TIMEZONE
 # ═══════════════════════════════════════════════════════════════════════════

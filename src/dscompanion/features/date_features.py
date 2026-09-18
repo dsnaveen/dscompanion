@@ -57,9 +57,9 @@ class DateFeatureExtractor(BaseEstimator, TransformerMixin):
             When ``False``, it is retained alongside the new feature columns.
         include_hour_cyclical (bool): When ``True``, also emits
             ``{col}_hour_sin``/``{col}_hour_cos`` (``sin``/``cos`` of
-            ``2*pi*hour/24``). Defaults to ``False`` — most banking date
-            columns carry no meaningful time-of-day component, so this is
-            opt-in rather than auto-detected.
+            ``2*pi*hour/24``). Defaults to ``False`` — most tabular business
+            date columns carry no meaningful time-of-day component, so this
+            is opt-in rather than auto-detected.
     """
 
     def __init__(

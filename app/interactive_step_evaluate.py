@@ -42,10 +42,10 @@ _METRIC_GLOSSES: dict[str, str] = {
     "roc_auc": (
         "How well the model separates positives from negatives. "
         "0.5 = no better than guessing, 1.0 = perfect. "
-        "In banking, 0.70+ is typically acceptable, 0.80+ is good."
+        "As a rough guide, 0.70+ is typically acceptable, 0.80+ is good."
     ),
     "gini": (
-        "Gini = 2 × AUC − 1. Common in credit scoring. "
+        "Gini = 2 × AUC − 1, a common alternative ranking metric. "
         "0 = no discriminating power, 1 = perfect separation. "
         "A Gini of 0.60 corresponds to an AUC of 0.80."
     ),

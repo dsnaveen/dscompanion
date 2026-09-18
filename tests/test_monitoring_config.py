@@ -88,7 +88,7 @@ class TestFromYaml:
                     "actuals_data": {
                         "path": "actuals.parquet",
                         "format": "parquet",
-                        "target_column": "default_flag",
+                        "target_column": "actual_outcome",
                     },
                     "id_columns": ["customer_id"],
                     "output": {"output_dir": "./monitoring_runs", "format": "csv"},
@@ -98,7 +98,7 @@ class TestFromYaml:
         cfg = MonitoringConfig.from_yaml(yaml_path)
         assert cfg.name == "yaml_test"
         assert cfg.raw_data is None
-        assert cfg.actuals_data.target_column == "default_flag"
+        assert cfg.actuals_data.target_column == "actual_outcome"
 
     def test_from_yaml_round_trip_with_raw_data(self, tmp_path):
         yaml_path = tmp_path / "monitoring.yaml"
@@ -108,7 +108,7 @@ class TestFromYaml:
                     "name": "yaml_test",
                     "scoring_pipeline_path": "model.joblib",
                     "scored_data": {"path": "scored.parquet"},
-                    "actuals_data": {"path": "actuals.parquet", "target_column": "default_flag"},
+                    "actuals_data": {"path": "actuals.parquet", "target_column": "actual_outcome"},
                     "raw_data": {"path": "raw.parquet"},
                     "id_columns": ["customer_id"],
                     "output": {"output_dir": "./monitoring_runs"},

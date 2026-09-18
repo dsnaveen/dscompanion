@@ -27,4 +27,4 @@ monitoring report once actuals are available.
 :doc:`../quickstart`'s "Batch scoring via YAML" section and ``templates/scoring_template.yaml``.
 ``ScoringRunner.from_yaml(path).run()`` loads the input data and a ``ScoringPipeline`` bundle,
 scores it, and writes the result into a timestamped ``<output.output_dir>/<run_id>/`` folder —
-the same IST-timestamped, audited run-folder convention ``PipelineRunner`` uses for training.
+the same name-prefixed, timestamped, audited run-folder convention ``PipelineRunner`` uses for training.

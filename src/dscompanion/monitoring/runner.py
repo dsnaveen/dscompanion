@@ -52,7 +52,7 @@ class MonitoringRunResult:
         n_matched_rows (int): Rows surviving the ``id_columns`` inner join
             between ``scored_data`` and ``actuals_data`` — the population
             performance metrics are computed over.
-        run_id (str): This run's id (``yyyymmdd_hhmmss``, IST).
+        run_id (str): This run's id (``<name>_yyyymmdd_hhmmss``).
         run_dir (Path): ``<output.output_dir>/<run_id>/`` — this run's
             output directory.
         performance_report_path (Path): Path to the written performance
@@ -90,15 +90,16 @@ class MonitoringRunner:
     run, joins a past scored batch with its now-available actual outcomes,
     re-measures performance, and (when ``raw_data`` is set) computes
     feature-level drift (CSI) — writing the result into a timestamped
-    ``<output.output_dir>/<run_id>/`` folder, the same IST-timestamped,
-    audited run-folder convention ``PipelineRunner``/``ScoringRunner`` use.
+    ``<output.output_dir>/<run_id>/`` folder, the same name-prefixed,
+    timestamped, audited run-folder convention
+    ``PipelineRunner``/``ScoringRunner`` use.
 
     Args:
         config (MonitoringConfig): Validated monitoring configuration.
 
     Example::
 
-        result = MonitoringRunner.from_yaml("monitoring/credit_risk_v1_monitoring.yaml").run()
+        result = MonitoringRunner.from_yaml("monitoring/my_model_v1_monitoring.yaml").run()
         print(result.performance_report)
         print(result.feature_drift_report)
     """
@@ -149,7 +150,7 @@ class MonitoringRunner:
         logger.info("MonitoringRunner  |  %s  v%s", cfg.name, cfg.version)
         logger.info("=" * 60)
 
-        run_id, run_dir = generate_run_id_and_dir(cfg.output.output_dir)
+        run_id, run_dir = generate_run_id_and_dir(cfg.output.output_dir, name=cfg.name)
         run_dir.mkdir(parents=True, exist_ok=True)
         logger.info("Run directory: %s", run_dir)
 
