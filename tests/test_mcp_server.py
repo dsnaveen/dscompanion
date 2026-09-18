@@ -124,3 +124,54 @@ class TestAnalyzeDataset:
         result = analyze_dataset(str(tmp_path / "nope.csv"), target="target")
 
         assert "error" in result
+
+
+class TestTrainAndCompareModels:
+    def _write_csv(self, tmp_path) -> str:
+        import numpy as np
+
+        rng = np.random.RandomState(42)
+        n = 200
+        df = pd.DataFrame(
+            {
+                "x1": rng.normal(size=n),
+                "x2": rng.normal(size=n),
+                "target": rng.choice([0, 1], size=n),
+            }
+        )
+        path = tmp_path / "data.csv"
+        df.to_csv(path, index=False)
+        return str(path)
+
+    def test_trains_and_returns_leaderboard(self, tmp_path):
+        from dscompanion.mcp.server import train_and_compare_models
+
+        data_path = self._write_csv(tmp_path)
+
+        result = train_and_compare_models(data_path, target="target", task="classification")
+
+        assert "error" not in result
+        assert Path(result["run_dir"]).exists()
+        assert Path(result["model_path"]).exists()
+        assert Path(result["run_dir"], "split.joblib").exists()
+        assert len(result["leaderboard"]) > 0
+        assert result["recommended"] in {row["algorithm"] for row in result["leaderboard"]}
+
+    def test_non_classification_task_returns_error(self, tmp_path):
+        from dscompanion.mcp.server import train_and_compare_models
+
+        data_path = self._write_csv(tmp_path)
+
+        result = train_and_compare_models(data_path, target="target", task="regression")
+
+        assert "error" in result
+        assert "classification" in result["error"]
+
+    def test_missing_target_column_returns_error(self, tmp_path):
+        from dscompanion.mcp.server import train_and_compare_models
+
+        data_path = self._write_csv(tmp_path)
+
+        result = train_and_compare_models(data_path, target="nope", task="classification")
+
+        assert "error" in result

@@ -23,13 +23,14 @@ from mcp.server.fastmcp import FastMCP
 
 from dscompanion.config import settings
 from dscompanion.eda import EDAReport
-from dscompanion.mcp._artifacts import new_run_dir
+from dscompanion.leaderboard import Leaderboard
+from dscompanion.mcp._artifacts import new_run_dir, save_split
 from dscompanion.mcp._loading import load_dataframe
 from dscompanion.split import DataSplitter
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["mcp", "analyze_dataset"]
+__all__ = ["mcp", "analyze_dataset", "train_and_compare_models"]
 
 mcp = FastMCP("dscompanion")
 
@@ -95,4 +96,55 @@ def analyze_dataset(data_path: str, target: str) -> dict:
         }
     except Exception as exc:
         logger.warning("analyze_dataset failed: %s", exc)
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+def train_and_compare_models(data_path: str, target: str, task: str) -> dict:
+    """Train and compare multiple algorithms on a dataset, returning the
+    best-performing model.
+
+    Use this after analyzing a dataset, to find the best model for it.
+    Currently only task="classification" is supported.
+
+    Args:
+        data_path (str): Path to a local CSV or Parquet file.
+        target (str): Name of the target column.
+        task (str): One of "classification", "regression", "clustering". Only
+            "classification" is currently implemented -- other values return
+            a structured error rather than raising.
+
+    Returns:
+        dict: On success: ``{"run_dir": str, "model_path": str, "leaderboard":
+        list[dict], "recommended": str}``. On failure: ``{"error": str}``.
+    """
+    if task != "classification":
+        return {
+            "error": (
+                f"task={task!r} is not yet supported -- only 'classification' "
+                "is currently implemented"
+            )
+        }
+    try:
+        df = load_dataframe(data_path)
+        if target not in df.columns:
+            return {"error": f"target column {target!r} not found in {data_path}"}
+
+        split = DataSplitter(strategy="random", target_col=target).fit_split(df)
+        leaderboard = Leaderboard(task=task)
+        leaderboard_df = leaderboard.run(split)
+
+        run_dir = new_run_dir()
+        recommended = leaderboard.best_algorithm()
+        model_path = leaderboard.fitted_models_[recommended].save(run_dir / "model.joblib")
+        save_split(split, run_dir / "split.joblib")
+
+        return {
+            "run_dir": str(run_dir),
+            "model_path": str(model_path),
+            "leaderboard": leaderboard_df.to_dict("records"),
+            "recommended": str(recommended),
+        }
+    except Exception as exc:
+        logger.warning("train_and_compare_models failed: %s", exc)
         return {"error": str(exc)}
