@@ -2182,14 +2182,14 @@ div[class*="col-"] + div[class*="col-"] {{ padding-left: 1rem !important; }}
             try:
                 top = self.explainer.mean_abs_shap().head(20)
                 result["top_features"] = top.to_dict(orient="records")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("SHAP explainability section skipped: %s", exc)
         if self.permutation_importance is not None:
             try:
                 top = self.permutation_importance.importance_table().head(20)
                 result["permutation_top_features"] = top.to_dict(orient="records")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Permutation importance section skipped: %s", exc)
         if not result:
             return {"note": "No SHAP explainer or permutation importance provided."}
         return result
@@ -2204,8 +2204,8 @@ div[class*="col-"] + div[class*="col-"] {{ padding-left: 1rem !important; }}
             result["metric"] = self.tuner.metric
             result["best_params"] = self.tuner.best_params_
             result["best_score"] = self.tuner.best_score_
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Tuning section skipped: %s", exc)
         return result
 
     def _leaderboard_section(self) -> pd.DataFrame:

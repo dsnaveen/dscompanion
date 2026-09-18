@@ -82,7 +82,10 @@ def _fetch_url(url: str, timeout: int = 15) -> str:
     import urllib.request
 
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as resp:
+        # nosec B310 -- url is never caller/user-controlled: the only two call sites
+        # below pass hardcoded HTTPS CDN constants, never external input, so this
+        # isn't the SSRF/arbitrary-scheme risk this rule generally guards against.
+        with urllib.request.urlopen(url, timeout=timeout) as resp:  # nosec B310
             return resp.read().decode("utf-8")
     except Exception as exc:
         logger.warning("Bootstrap asset fetch failed for %s: %s", url, type(exc).__name__)

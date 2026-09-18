@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import tempfile
 from pathlib import Path
 from typing import Any
 
@@ -351,10 +352,19 @@ class EDAReport:
         """
         self._check_run()
         if is_databricks():
-            tmp = Path("/tmp/eda_report.html")
-            self.to_html(tmp)
-            html = tmp.read_text()
-            displayHTML(html)  # noqa: F821  # Databricks built-in
+            # A uniquely-named tempfile.NamedTemporaryFile, not a fixed
+            # "/tmp/eda_report.html" path -- Databricks clusters can run multiple
+            # users' notebooks concurrently, and a predictable shared-/tmp filename
+            # is a symlink/race-condition risk (Bandit B108, a genuine finding here,
+            # not a false positive). Cleaned up afterward either way.
+            with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as tmp_file:
+                tmp = Path(tmp_file.name)
+            try:
+                self.to_html(tmp)
+                html = tmp.read_text()
+                displayHTML(html)  # noqa: F821  # Databricks built-in
+            finally:
+                tmp.unlink(missing_ok=True)
         else:
             self.to_html("eda_report.html")
 

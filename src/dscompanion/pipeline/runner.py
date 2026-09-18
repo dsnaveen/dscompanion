@@ -839,8 +839,8 @@ class PipelineRunner:
         ):
             try:
                 model.estimator.set_params(class_weight=imbalance_handler.class_weights_)
-            except Exception:
-                pass  # estimator does not support class_weight
+            except Exception as exc:
+                logger.debug("Estimator does not support class_weight: %s", exc)
 
         # Algorithms with built-in early stopping (e.g. XGBoost's default
         # early_stopping_rounds=20) raise "Must have at least 1 validation dataset

@@ -1106,7 +1106,11 @@ class HashEncoder(BaseEstimator, TransformerMixin):
         buckets = np.empty(len(values), dtype=np.int64)
         signs = np.empty(len(values), dtype=np.int64)
         for i, value in enumerate(values):
-            digest = hashlib.md5(value.encode("utf-8")).hexdigest()
+            # usedforsecurity=False: MD5 here is a deterministic bucketing function,
+            # not a security primitive -- collisions just mean two categories share a
+            # bucket, an expected, harmless property of the hashing trick. Documents
+            # intent so scanners (Bandit B324) don't flag it as a weak-crypto risk.
+            digest = hashlib.md5(value.encode("utf-8"), usedforsecurity=False).hexdigest()
             buckets[i] = int(digest[:8], 16) % self._n_components
             signs[i] = 1 if int(digest[8:16], 16) % 2 == 0 else -1
         return buckets, signs

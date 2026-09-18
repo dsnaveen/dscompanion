@@ -212,8 +212,8 @@ def _render_single_path(split: DataSplit, feat_cols: list[str]) -> None:
                             model.estimator.set_params(
                                 class_weight=imbalance_handler.class_weights_
                             )
-                        except Exception:
-                            pass
+                        except Exception as exc:
+                            logger.debug("Estimator does not support class_weight: %s", exc)
 
                     eval_set = None
                     if len(processed_split.val_X) > 0:
@@ -455,8 +455,8 @@ def _leaderboard_worker(
                 ):
                     try:
                         model.estimator.set_params(class_weight=imbalance_handler.class_weights_)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.debug("Estimator does not support class_weight: %s", exc)
 
                 model.fit(processed_split.train_X, processed_split.train_y, eval_set=eval_set)
                 elapsed = time.perf_counter() - t0

@@ -190,8 +190,8 @@ def _apply_class_weight(model: object, imbalance_handler: ImbalanceHandler | Non
     ):
         try:
             model.estimator.set_params(class_weight=imbalance_handler.class_weights_)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Estimator does not support class_weight: %s", exc)
 
 
 def _metrics_rows(metrics_df: pd.DataFrame) -> list[TrainMetricRow]:

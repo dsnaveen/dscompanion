@@ -285,8 +285,8 @@ def _render_headline(metrics_df: pd.DataFrame) -> None:
             if winner is not None and split is not None:
                 try:
                     baseline_df = winner.evaluate(split)
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Baseline metrics unavailable: %s", exc)
 
     split_label = f"on **{primary}** split"
     st.caption(
