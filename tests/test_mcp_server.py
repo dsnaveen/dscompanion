@@ -81,3 +81,46 @@ class TestLoading:
 
         with pytest.raises(ValueError, match="[Uu]nsupported"):
             load_dataframe(str(path))
+
+
+class TestAnalyzeDataset:
+    def _write_csv(self, tmp_path) -> str:
+        df = pd.DataFrame(
+            {
+                "age": [25, 30, 35, 40, 45, 50, 55, 60, 65, 70] * 3,
+                "balance": [float(i * 100) for i in range(1, 11)] * 3,
+                "target": [0, 1] * 15,
+            }
+        )
+        path = tmp_path / "data.csv"
+        df.to_csv(path, index=False)
+        return str(path)
+
+    def test_returns_summary_and_charts(self, tmp_path):
+        from dscompanion.mcp.server import analyze_dataset
+
+        data_path = self._write_csv(tmp_path)
+
+        result = analyze_dataset(data_path, target="target")
+
+        assert "error" not in result
+        assert result["summary"]["n_rows"] == 30
+        assert "age" in result["summary"]["numeric_columns"]
+        assert Path(result["run_dir"]).exists()
+        assert len(result["chart_paths"]) > 0
+
+    def test_missing_target_column_returns_error(self, tmp_path):
+        from dscompanion.mcp.server import analyze_dataset
+
+        data_path = self._write_csv(tmp_path)
+
+        result = analyze_dataset(data_path, target="does_not_exist")
+
+        assert "error" in result
+
+    def test_missing_file_returns_error(self, tmp_path):
+        from dscompanion.mcp.server import analyze_dataset
+
+        result = analyze_dataset(str(tmp_path / "nope.csv"), target="target")
+
+        assert "error" in result

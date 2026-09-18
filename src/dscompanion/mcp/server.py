@@ -1,0 +1,98 @@
+"""FastMCP server exposing dscompanion as 5 atomic, agent-callable tools.
+
+Runs entirely locally (stdio transport, launched by the user's own MCP client
+as a subprocess) -- no data leaves the local machine, no network calls, no
+auth. Every tool returns a plain JSON-serialisable dict, never a DataFrame or
+other Python object, and never lets an exception propagate as a raw
+traceback -- callers get a structured ``{"error": str}`` instead, since an
+agent needs a parseable failure it can explain to the user.
+"""
+
+# Deliberately no `from __future__ import annotations` here, unlike every other
+# module in this codebase -- the installed `mcp` SDK's @mcp.tool() decorator
+# introspects live parameter type objects at import time (Tool.from_function calls
+# issubclass(param.annotation, Context)), and postponed evaluation makes annotations
+# strings instead, crashing with "issubclass() arg 1 must be a class". Confirmed via
+# a minimal reproduction against mcp==1.12.4. Safe to omit since this project targets
+# Python 3.12+, where modern generic/union syntax (`dict[str, Any]`, `X | None`)
+# already works natively without the future import.
+
+import logging
+
+from mcp.server.fastmcp import FastMCP
+
+from dscompanion.config import settings
+from dscompanion.eda import EDAReport
+from dscompanion.mcp._artifacts import new_run_dir
+from dscompanion.mcp._loading import load_dataframe
+from dscompanion.split import DataSplitter
+
+logger = logging.getLogger(__name__)
+
+__all__ = ["mcp", "analyze_dataset"]
+
+mcp = FastMCP("dscompanion")
+
+
+@mcp.tool()
+def analyze_dataset(data_path: str, target: str) -> dict:
+    """Run exploratory data analysis on a local dataset file.
+
+    Use this first, before training a model, to understand a dataset's shape,
+    quality, and its features' relationship to the target -- surfaces missing
+    data, low-signal columns, and other red flags.
+
+    Args:
+        data_path (str): Path to a local CSV or Parquet file.
+        target (str): Name of the target column in that file.
+
+    Returns:
+        dict: On success: ``{"run_dir": str, "summary": {"n_rows": int,
+        "n_columns": int, "numeric_columns": list[str], "categorical_columns":
+        list[str], "missing_pct_by_column": dict[str, float], "top_iv_features":
+        list[dict], "red_flags": list[str]}, "chart_paths": list[str]}``. On
+        failure: ``{"error": str}``.
+    """
+    try:
+        df = load_dataframe(data_path)
+        if target not in df.columns:
+            return {"error": f"target column {target!r} not found in {data_path}"}
+
+        split = DataSplitter(strategy="random", target_col=target).fit_split(df)
+        report = EDAReport(split, target=target).run_all()
+
+        run_dir = new_run_dir()
+        chart_paths = report.export_charts(run_dir / "eda")
+
+        numeric_summary = report.numeric_summary()
+        categorical_summary = report.categorical_summary()
+        iv_df = report.iv_table()
+
+        missing_pct: dict[str, float] = {}
+        for summary_df in (numeric_summary, categorical_summary):
+            for _, row in summary_df.iterrows():
+                missing_pct[row["feature"]] = float(row["missing_pct"])
+
+        red_flags = [
+            f"{feature}: {pct:.1%} missing"
+            for feature, pct in missing_pct.items()
+            if pct > settings.mcp_high_missing_red_flag_threshold
+        ]
+
+        summary = {
+            "n_rows": int(len(df)),
+            "n_columns": int(df.shape[1]),
+            "numeric_columns": numeric_summary["feature"].tolist(),
+            "categorical_columns": categorical_summary["feature"].tolist(),
+            "missing_pct_by_column": missing_pct,
+            "top_iv_features": iv_df.head(10).to_dict("records"),
+            "red_flags": red_flags,
+        }
+        return {
+            "run_dir": str(run_dir),
+            "summary": summary,
+            "chart_paths": [str(p) for p in chart_paths.values()],
+        }
+    except Exception as exc:
+        logger.warning("analyze_dataset failed: %s", exc)
+        return {"error": str(exc)}
