@@ -248,3 +248,42 @@ class TestCheckModelReadiness:
         result = check_model_readiness(str(tmp_path / "nonexistent"))
 
         assert "error" in result
+
+
+class TestExplainModel:
+    def _trained_run_dir(self, tmp_path):
+        import numpy as np
+
+        from dscompanion.mcp.server import train_and_compare_models
+
+        rng = np.random.RandomState(2)
+        n = 200
+        df = pd.DataFrame(
+            {
+                "x1": rng.normal(size=n),
+                "x2": rng.normal(size=n),
+                "target": rng.choice([0, 1], size=n),
+            }
+        )
+        data_path = tmp_path / "data.csv"
+        df.to_csv(data_path, index=False)
+        result = train_and_compare_models(str(data_path), target="target", task="classification")
+        return result["run_dir"]
+
+    def test_returns_top_features(self, tmp_path):
+        from dscompanion.mcp.server import explain_model
+
+        run_dir = self._trained_run_dir(tmp_path)
+
+        result = explain_model(run_dir)
+
+        assert "error" not in result
+        assert len(result["top_features"]) == 2
+        assert {"feature", "mean_abs_shap", "rank"} <= set(result["top_features"][0].keys())
+
+    def test_missing_run_dir_returns_error(self, tmp_path):
+        from dscompanion.mcp.server import explain_model
+
+        result = explain_model(str(tmp_path / "nonexistent"))
+
+        assert "error" in result

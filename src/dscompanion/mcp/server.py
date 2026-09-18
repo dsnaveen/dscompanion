@@ -24,6 +24,7 @@ from mcp.server.fastmcp import FastMCP
 
 from dscompanion.config import settings
 from dscompanion.eda import EDAReport
+from dscompanion.explain import SHAPExplainer
 from dscompanion.leaderboard import Leaderboard
 from dscompanion.mcp._artifacts import load_split, new_run_dir, save_split
 from dscompanion.mcp._loading import load_dataframe
@@ -38,6 +39,7 @@ __all__ = [
     "analyze_dataset",
     "train_and_compare_models",
     "check_model_readiness",
+    "explain_model",
 ]
 
 mcp = FastMCP("dscompanion")
@@ -202,4 +204,43 @@ def check_model_readiness(run_dir: str) -> dict:
         return {"checks": checks, "overall": overall}
     except Exception as exc:
         logger.warning("check_model_readiness failed: %s", exc)
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+def explain_model(run_dir: str) -> dict:
+    """Explain which features drive a trained model's predictions.
+
+    Use this after training a model (via train_and_compare_models) to
+    understand its behavior via SHAP-based global feature importance.
+
+    Args:
+        run_dir (str): The run directory returned by ``train_and_compare_models``
+            -- must contain ``model.joblib`` and ``split.joblib``.
+
+    Returns:
+        dict: On success: ``{"top_features": list[dict]}`` where each entry has
+        ``feature`` (str), ``mean_abs_shap`` (float), and ``rank`` (int). On
+        failure: ``{"error": str}``.
+    """
+    try:
+        model_path = Path(run_dir) / "model.joblib"
+        split_path = Path(run_dir) / "split.joblib"
+        if not model_path.exists() or not split_path.exists():
+            return {
+                "error": (
+                    f"{run_dir!r} does not contain both model.joblib and "
+                    "split.joblib -- pass a run_dir returned by train_and_compare_models"
+                )
+            }
+
+        model = BaseDSCompanionModel.load(model_path)
+        split = load_split(split_path)
+
+        explainer = SHAPExplainer(model).fit(split.train_X)
+        importance_df = explainer.mean_abs_shap()
+
+        return {"top_features": importance_df.to_dict("records")}
+    except Exception as exc:
+        logger.warning("explain_model failed: %s", exc)
         return {"error": str(exc)}
