@@ -119,6 +119,16 @@ def test_step1_preview_does_not_persist(client: TestClient, csv_path: Path) -> N
     assert state["step_confirmed"]["load_data"] is False
 
 
+def test_step1_preview_rejects_relative_path_traversal(client: TestClient) -> None:
+    run_id = _create_run(client)
+    resp = client.post(
+        f"/api/runs/{run_id}/steps/load_data/preview",
+        json={"path": "../../../../etc/passwd", "format": "csv"},
+    )
+    assert resp.status_code == 400
+    assert "outside the allowed data directory" in resp.json()["detail"]
+
+
 def test_step1_confirm_persists_and_advances_state(client: TestClient, csv_path: Path) -> None:
     run_id = _create_run(client)
     _confirm_step1(client, run_id, csv_path)

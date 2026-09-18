@@ -6,6 +6,16 @@ Run locally with:
 
 ``create_app()`` exists separately from the module-level ``app`` so tests can build a
 fresh app (and thus a fresh dependency graph) per test without import-time side effects.
+
+**Local, single-user use only -- never deploy this as a shared or publicly-hosted
+service without revisiting its security posture first.** In particular, Step 1's
+load-data endpoints (``dscompanion.api.services.load_data``) deliberately allow an
+absolute file path from the caller with no access-root restriction, on the
+assumption that the person calling this API and the person running it are the same
+person on the same machine (they already have that same file access directly,
+with or without this API). That assumption breaks -- turning this into a real
+arbitrary-file-read vulnerability -- the moment this service is exposed to any
+caller who isn't also the machine's own trusted user.
 """
 
 from __future__ import annotations

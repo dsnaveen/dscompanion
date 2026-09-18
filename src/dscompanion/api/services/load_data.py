@@ -35,19 +35,35 @@ def _resolve_path(path: str) -> str:
 
     ``GET /api/data-files`` returns paths relative to ``_DATA_ROOT`` (for display —
     mirrors the Streamlit picker's short labels); this makes those same strings work
-    unchanged when passed straight back into preview/confirm. Absolute paths (e.g. an
-    upload staged elsewhere, once Phase H.2 lands) pass through untouched.
+    unchanged when passed straight back into preview/confirm. Absolute paths (e.g.
+    an upload staged elsewhere, once Phase H.2 lands) pass through untouched — a
+    deliberate choice, not an oversight: see ``dscompanion.api.main``'s module
+    docstring for the local-single-user-only assumption this relies on.
+
+    A *relative* path is still confined to ``_DATA_ROOT`` — resolved and verified
+    to land inside it, rejecting any ``..`` attempt to escape. Nothing legitimate
+    needs a relative path to point outside ``_DATA_ROOT`` (every relative path this
+    API hands out via ``GET /api/data-files`` already lives inside it), so this
+    narrows CodeQL's ``py/path-injection`` finding without touching the absolute-path
+    behavior the test suite and local single-user flow both rely on.
 
     Args:
         path (str): Path as received from the client.
 
     Returns:
         str: Absolute path to read.
+
+    Raises:
+        ValueError: If a relative path resolves outside ``_DATA_ROOT``.
     """
     candidate = Path(path)
     if candidate.is_absolute():
         return str(candidate)
-    return str(_DATA_ROOT / candidate)
+    root = _DATA_ROOT.resolve()
+    resolved = (root / candidate).resolve()
+    if not resolved.is_relative_to(root):
+        raise ValueError(f"Path {path!r} is outside the allowed data directory")
+    return str(resolved)
 
 
 def _read_raw_header(path: str, fmt: str, sheet_name: str | None) -> list[str]:
