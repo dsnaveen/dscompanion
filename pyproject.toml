@@ -79,8 +79,12 @@ models = ["lightgbm==4.6.0"]
 notebooks = ["ucimlrepo>=0.0.7", "jupyter>=1.0", "ipykernel>=6.29"]
 # Optional MCP (Model Context Protocol) server exposing dscompanion as agent-callable
 # tools — runs entirely locally (stdio transport), no data leaves the user's machine.
-# Not required for using dscompanion as a library.
-mcp = ["mcp>=1.0"]
+# Not required for using dscompanion as a library. sse-starlette pinned <3.0: 3.4.11
+# (the default resolution otherwise) requires starlette>=0.49.1, which removed the
+# on_startup kwarg fastapi==0.117.1's APIRouter still passes — breaks the `api` extra
+# if both are installed together. sse-starlette<3.0 (confirmed with 2.4.1) has no such
+# floor and works fine with both mcp and fastapi.
+mcp = ["mcp>=1.0", "sse-starlette<3.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
