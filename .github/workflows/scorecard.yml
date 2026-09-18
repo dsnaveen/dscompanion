@@ -1,0 +1,59 @@
+# This workflow uses actions that are not certified by GitHub.
+# They are provided by a third-party and are governed by
+# separate terms of service, privacy policy, and support
+# documentation.
+
+# OSSF Scorecard checks a project against security best practices (branch
+# protection, pinned dependencies, known-vulnerable dependencies, code review
+# requirements, etc.) rather than scanning for specific vulnerabilities --
+# it's the reference check security-conscious organizations use to evaluate
+# whether an open-source dependency follows good supply-chain hygiene.
+# https://github.com/ossf/scorecard
+
+name: Scorecard supply-chain security
+
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: '30 1 * * 6'
+  push:
+    branches: [ "main" ]
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # to upload SARIF results
+      id-token: write # to publish results and get a badge (see publish_results below)
+      contents: read
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: "Run analysis"
+        uses: ossf/scorecard-action@v2
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # publish_results: true makes results public and enables the
+          # OSSF badge -- appropriate for a public OSS repo like this one.
+          publish_results: true
+
+      - name: "Upload artifact"
+        uses: actions/upload-artifact@v4
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5
+
+      - name: "Upload to code-scanning"
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
