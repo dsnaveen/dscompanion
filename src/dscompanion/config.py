@@ -610,6 +610,19 @@ class DSCompanionConfig(BaseSettings):
         "when generating synthetic minority-class rows",
     )
 
+    # ── MCP server ──────────────────────────────────────────────────────────
+    mcp_output_dir: str = Field(
+        "outputs/mcp",
+        description="Base directory for MCP tool call run artifacts (saved models, "
+        "splits, charts, reports). Each tool call gets its own uniquely-named "
+        "subdirectory under this path.",
+    )
+    mcp_high_missing_red_flag_threshold: float = Field(
+        0.5,
+        description="Missing-value rate above which analyze_dataset's summary flags a "
+        "column as a red flag.",
+    )
+
     model_config = {"env_prefix": "DSCOMPANION_", "env_file": ".env", "extra": "ignore"}
 
 

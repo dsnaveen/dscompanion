@@ -77,6 +77,10 @@ models = ["lightgbm==4.6.0"]
 # Tooling for notebooks/ — the learning/tutorial notebooks, never imported by
 # dscompanion's runtime code.
 notebooks = ["ucimlrepo>=0.0.7", "jupyter>=1.0", "ipykernel>=6.29"]
+# Optional MCP (Model Context Protocol) server exposing dscompanion as agent-callable
+# tools — runs entirely locally (stdio transport), no data leaves the user's machine.
+# Not required for using dscompanion as a library.
+mcp = ["mcp>=1.0"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
