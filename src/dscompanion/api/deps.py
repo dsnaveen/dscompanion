@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, HTTPException, Security
+from fastapi.security import APIKeyHeader
 
 from dscompanion.api.auth import get_auth_backend
 from dscompanion.api.state import RunState, RunStateStore, get_run_state_store
@@ -14,6 +15,18 @@ from dscompanion.api.state import RunState, RunStateStore, get_run_state_store
 logger = logging.getLogger(__name__)
 
 __all__ = ["get_state_store", "get_auth", "get_pipeline_service"]
+
+# A proper FastAPI security scheme (not a plain Header() parameter) so the
+# generated OpenAPI spec actually declares this as an auth requirement
+# (components.securitySchemes + per-operation security) -- a plain Header()
+# parameter is indistinguishable from an ordinary header to FastAPI's OpenAPI
+# generator, which is why the previous version left security/securitySchemes
+# empty (checkov CKV_OPENAPI_4/CKV_OPENAPI_5, confirmed as a real gap, not a
+# false positive). auto_error=False preserves the existing behavior of
+# passing through to get_auth() below even when the header is absent, since
+# check_api_key() already handles the "no key configured" local-dev case
+# itself.
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 
 def get_state_store() -> RunStateStore:
@@ -29,7 +42,7 @@ def get_state_store() -> RunStateStore:
     return get_run_state_store()
 
 
-def get_auth(x_api_key: str | None = Header(default=None)):
+def get_auth(x_api_key: str | None = Security(_api_key_header)):
     """FastAPI dependency enforcing authentication on every protected route.
 
     Dispatches to whichever backend ``api_settings.auth_backend`` selects — the

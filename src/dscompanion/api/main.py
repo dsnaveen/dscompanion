@@ -24,6 +24,7 @@ import logging
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.utils import get_openapi
 
 from dscompanion.api.config import api_settings
 from dscompanion.api.routers import ALL_ROUTERS
@@ -57,6 +58,27 @@ def create_app() -> FastAPI:
     )
     for router in ALL_ROUTERS:
         application.include_router(router)
+
+    def custom_openapi() -> dict:
+        """Adds a top-level default ``security`` requirement to the generated
+        schema. Every route already declares this per-operation (via
+        ``deps.get_auth``'s ``APIKeyHeader`` dependency); this only adds the
+        global default OpenAPI itself doesn't infer automatically (checkov
+        ``CKV_OPENAPI_4``, confirmed as a real gap, not a false positive).
+        """
+        if application.openapi_schema:
+            return application.openapi_schema
+        schema = get_openapi(
+            title=application.title,
+            version=application.version,
+            description=application.description,
+            routes=application.routes,
+        )
+        schema["security"] = [{"APIKeyHeader": []}]
+        application.openapi_schema = schema
+        return application.openapi_schema
+
+    application.openapi = custom_openapi
 
     logger.info(
         "dscompanion API app created: auth_backend=%s state_backend=%s",
