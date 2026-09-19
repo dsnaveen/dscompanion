@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from unittest.mock import MagicMock
 from zoneinfo import ZoneInfoNotFoundError
 
 import numpy as np
@@ -418,6 +419,75 @@ class TestPreflight:
 # ---------------------------------------------------------------------------
 # run_id generation — yyyymmdd_hhmmss, collision-safe
 # ---------------------------------------------------------------------------
+
+
+class TestSparkProfilingIntegration:
+    def test_disabled_never_checks_availability(self, tmp_path, monkeypatch):
+        import dscompanion.pipeline.runner as runner_module
+
+        called = []
+        monkeypatch.setattr(
+            runner_module,
+            "spark_profiling_available",
+            lambda: called.append(True) or True,
+        )
+        df = pd.DataFrame({"x": [1, 2, 3], "y": [0, 1, 0]})
+        path = tmp_path / "data.parquet"
+        df.to_parquet(path, index=False)
+        cfg = _minimal_config(
+            data=DataConfig(path=str(path), target="y", format="parquet"),
+        )
+        runner = PipelineRunner(cfg)
+
+        runner._load_data()
+
+        assert called == []
+
+    def test_enabled_but_unavailable_falls_back_to_pandas(self, tmp_path, monkeypatch):
+        import dscompanion.pipeline.runner as runner_module
+
+        monkeypatch.setattr(runner_module, "spark_profiling_available", lambda: False)
+        df = pd.DataFrame({"x": [1, 2, 3], "y": [0, 1, 0]})
+        path = tmp_path / "data.parquet"
+        df.to_parquet(path, index=False)
+        cfg = _minimal_config(
+            data=DataConfig(path=str(path), target="y", format="parquet", use_spark_profiling=True),
+        )
+        runner = PipelineRunner(cfg)
+        runner._run_dir = tmp_path / "run_dir"
+
+        result = runner._load_data()
+
+        assert list(result.columns) == ["x", "y"]
+        assert len(result) == 3
+
+    def test_enabled_and_available_calls_profile_and_sample(self, tmp_path, monkeypatch):
+        import dscompanion.pipeline.runner as runner_module
+
+        monkeypatch.setattr(runner_module, "spark_profiling_available", lambda: True)
+        sampled = pd.DataFrame({"x": [1, 2], "y": [0, 1]})
+        mock_profile_and_sample = MagicMock(return_value=sampled)
+        monkeypatch.setattr(runner_module, "profile_and_sample", mock_profile_and_sample)
+
+        cfg = _minimal_config(
+            data=DataConfig(
+                path="some/path.parquet",
+                target="y",
+                format="parquet",
+                use_spark_profiling=True,
+            ),
+        )
+        runner = PipelineRunner(cfg)
+        runner._run_dir = tmp_path / "run_dir"
+
+        result = runner._load_data()
+
+        mock_profile_and_sample.assert_called_once_with(
+            "some/path.parquet",
+            "parquet",
+            tmp_path / "run_dir" / "eda",
+        )
+        assert result.equals(sampled)
 
 
 class TestGenerateRunIdAndDir:
