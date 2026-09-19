@@ -142,6 +142,22 @@ class TestPipelineConfigValidation:
         cfg = DataConfig(path="dummy.parquet", target="y", row_group_sample=True)
         assert cfg.row_group_sample is True
 
+    def test_use_spark_profiling_defaults_false(self):
+        cfg = DataConfig(path="d.parquet", target="y", format="parquet")
+        assert cfg.use_spark_profiling is False
+
+    def test_use_spark_profiling_with_parquet_constructs(self):
+        cfg = DataConfig(path="d.parquet", target="y", format="parquet", use_spark_profiling=True)
+        assert cfg.use_spark_profiling is True
+
+    def test_use_spark_profiling_with_delta_constructs(self):
+        cfg = DataConfig(path="d", target="y", format="delta", use_spark_profiling=True)
+        assert cfg.use_spark_profiling is True
+
+    def test_use_spark_profiling_with_unsupported_format_raises(self):
+        with pytest.raises(ValidationError, match="use_spark_profiling"):
+            DataConfig(path="d.csv", target="y", format="csv", use_spark_profiling=True)
+
     def test_invalid_split_method_raises(self):
         with pytest.raises(ValidationError, match="method must be one of"):
             SplitConfig(method="bogus")

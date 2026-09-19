@@ -100,6 +100,17 @@ class DataConfig(BaseModel):
             groups/files the source actually has — a single file with few
             row groups sees little benefit. Mutually exclusive with
             ``read_via_spark``. Defaults to ``False``.
+        use_spark_profiling (bool): ``format="delta"`` or ``format="parquet"``
+            only. When ``True``, and an active Spark session plus the optional
+            ``spark-data-profiler`` package are both available at runtime, profiles
+            the *full* dataset natively in Spark (missingness, skew, imbalance,
+            correlations) before sampling down to
+            ``settings.spark_profiling_sample_rows`` rows for the rest of the
+            pipeline — the Spark profile report is saved alongside the pandas EDA
+            output. If Spark or ``spark-data-profiler`` aren't actually available in
+            the running environment, silently falls back to the plain pandas load
+            (logged at INFO, not an error) — this is an opportunistic enhancement,
+            not a hard requirement. Defaults to ``False`` (unchanged behavior).
 
     Returns:
         DataConfig: Validated data specification.
@@ -118,6 +129,7 @@ class DataConfig(BaseModel):
     sheet_name: str | int | list[str | int] | None = None
     read_via_spark: bool = False
     row_group_sample: bool = False
+    use_spark_profiling: bool = False
 
     @field_validator("format")
     @classmethod
@@ -172,6 +184,15 @@ class DataConfig(BaseModel):
             raise ValueError(
                 f"{field} is only meaningful for format='parquet' (format='delta' already "
                 f"always reads via Spark; got format={self.format!r})."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def valid_spark_profiling_format(self) -> "DataConfig":
+        if self.use_spark_profiling and self.format not in ("delta", "parquet"):
+            raise ValueError(
+                f"use_spark_profiling is only meaningful for format='delta' or "
+                f"format='parquet' (got format={self.format!r})."
             )
         return self
 
