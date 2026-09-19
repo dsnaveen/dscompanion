@@ -85,6 +85,9 @@ notebooks = ["ucimlrepo>=0.0.7", "jupyter>=1.0", "ipykernel>=6.29"]
 # if both are installed together. sse-starlette<3.0 (confirmed with 2.4.1) has no such
 # floor and works fine with both mcp and fastapi.
 mcp = ["mcp>=1.0", "sse-starlette<3.0"]
+# Convenience extra bundling every other extra above -- used by the Docker image
+# (see Dockerfile) so it never needs updating when a new extra is added later.
+all = ["dscompanion[dev,databricks,docs,app,api,models,notebooks,mcp]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
