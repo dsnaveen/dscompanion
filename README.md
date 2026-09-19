@@ -31,6 +31,28 @@ this transparently during pipeline execution. If you need queryable run history 
 server UI, you'll need a separate mechanism outside dscompanion — it provides only local
 structured logs by default.
 
+## Docker
+
+A self-contained image with every optional extra pre-installed is published to
+GitHub Container Registry on every release:
+
+```bash
+docker pull ghcr.io/dsnaveen/dscompanion:latest
+docker run -it ghcr.io/dsnaveen/dscompanion:latest
+```
+
+Also works with [Podman](https://podman.io/) — `podman pull`/`podman run` are
+drop-in replacements for the `docker` commands above.
+
+The default command drops you into a shell with dscompanion and every optional
+dependency already installed. To run the optional FastAPI service instead, override
+the command:
+
+```bash
+docker run -p 8000:8000 ghcr.io/dsnaveen/dscompanion:latest \
+  uvicorn dscompanion.api.main:app --host 0.0.0.0
+```
+
 ## Quickstart
 
 ```python
