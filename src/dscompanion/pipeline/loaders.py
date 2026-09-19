@@ -155,6 +155,34 @@ def _get_active_spark_session(context: str):
     return spark
 
 
+def _get_spark_dataframe(path: str, fmt: str, context: str):
+    """Return an uncollected Spark DataFrame for ``path``/``fmt`` via the active session.
+
+    Shared by ``_load_delta``/``_load_parquet_via_spark`` (which sample and collect it
+    immediately) and ``spark_profiling.profile_and_sample`` (which profiles the full,
+    uncollected DataFrame before any sampling happens).
+
+    Args:
+        path (str): Path to the Delta table or parquet source.
+        fmt (str): One of ``"delta"``, ``"parquet"``.
+        context (str): Short phrase naming the caller, used only in the
+            ``ImportError``/``RuntimeError`` fallback message.
+
+    Returns:
+        pyspark.sql.DataFrame: Lazy, uncollected — no data has been read yet.
+
+    Raises:
+        RuntimeError: If PySpark isn't importable, no active ``SparkSession`` is
+            found, or ``fmt`` isn't ``"delta"``/``"parquet"``.
+    """
+    spark = _get_active_spark_session(context)
+    if fmt == "delta":
+        return spark.read.format("delta").load(path)
+    if fmt == "parquet":
+        return spark.read.parquet(path)
+    raise RuntimeError(f"_get_spark_dataframe only supports 'delta'/'parquet', got {fmt!r}")
+
+
 def _sample_spark_dataframe(df, nrows: int | None, fraction_rows: float | None):
     """Apply ``nrows``/``fraction_rows`` sampling to a Spark DataFrame before collection.
 
@@ -217,8 +245,7 @@ def _load_delta(
         RuntimeError: If PySpark isn't importable, or no active SparkSession
             is found.
     """
-    spark = _get_active_spark_session("format='delta'")
-    df = spark.read.format("delta").load(path)
+    df = _get_spark_dataframe(path, "delta", "format='delta'")
     df = _sample_spark_dataframe(df, nrows, fraction_rows)
     return df.toPandas()
 
@@ -251,8 +278,7 @@ def _load_parquet_via_spark(
         RuntimeError: If PySpark isn't importable, or no active SparkSession
             is found.
     """
-    spark = _get_active_spark_session("read_via_spark=True")
-    df = spark.read.parquet(path)
+    df = _get_spark_dataframe(path, "parquet", "read_via_spark=True")
     df = _sample_spark_dataframe(df, nrows, fraction_rows)
     return df.toPandas()
 

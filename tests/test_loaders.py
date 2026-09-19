@@ -63,6 +63,50 @@ def _mock_spark_df(total_count: int, sampled_frame: pd.DataFrame | None = None):
     return mock_df
 
 
+class TestGetSparkDataFrame:
+    def test_delta_calls_read_format_load(self):
+        from dscompanion.pipeline.loaders import _get_spark_dataframe
+
+        mock_df = MagicMock()
+        mock_session = MagicMock()
+        mock_session.read.format.return_value.load.return_value = mock_df
+
+        with patch.dict(sys.modules, _mock_pyspark_modules(mock_session)):
+            result = _get_spark_dataframe("some/path", "delta", "test-context")
+
+        mock_session.read.format.assert_called_once_with("delta")
+        mock_session.read.format.return_value.load.assert_called_once_with("some/path")
+        assert result is mock_df
+
+    def test_parquet_calls_read_parquet(self):
+        from dscompanion.pipeline.loaders import _get_spark_dataframe
+
+        mock_df = MagicMock()
+        mock_session = MagicMock()
+        mock_session.read.parquet.return_value = mock_df
+
+        with patch.dict(sys.modules, _mock_pyspark_modules(mock_session)):
+            result = _get_spark_dataframe("some/path", "parquet", "test-context")
+
+        mock_session.read.parquet.assert_called_once_with("some/path")
+        assert result is mock_df
+
+    def test_unsupported_format_raises(self):
+        from dscompanion.pipeline.loaders import _get_spark_dataframe
+
+        mock_session = MagicMock()
+        with patch.dict(sys.modules, _mock_pyspark_modules(mock_session)):
+            with pytest.raises(RuntimeError, match="only supports"):
+                _get_spark_dataframe("some/path", "csv", "test-context")
+
+    def test_no_active_session_raises(self):
+        from dscompanion.pipeline.loaders import _get_spark_dataframe
+
+        with patch.dict(sys.modules, _mock_pyspark_modules(None)):
+            with pytest.raises(RuntimeError, match="No active SparkSession"):
+                _get_spark_dataframe("some/path", "delta", "test-context")
+
+
 class TestLoadDeltaSampling:
     """_load_delta's Spark-side sampling — mocked SparkSession, no real cluster needed."""
 

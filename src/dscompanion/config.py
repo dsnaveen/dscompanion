@@ -74,6 +74,11 @@ class DSCompanionConfig(BaseSettings):
         max_eda_rows (int): Maximum number of rows loaded into memory for
             EDA distribution plots to guard against OOM errors on large
             datasets.  Defaults to ``100_000``.
+        spark_profiling_sample_rows (int): Target row count when sampling a
+            Spark-profiled dataset down to pandas.  Defaults to ``100_000``.
+        spark_profiling_output_subdir (str): Subdirectory (under the run
+            directory) the Spark profile report is written into.  Defaults to
+            ``"eda"``.
 
     Returns:
         DSCompanionConfig: A fully validated settings instance.  All values are
@@ -295,6 +300,19 @@ class DSCompanionConfig(BaseSettings):
             "Max features EDAReport.export_charts() renders bivariate (target-rate-by-bin) "
             "charts for, ranked by Information Value"
         ),
+    )
+
+    # ── Spark-scale profiling ───────────────────────────────────────────────
+    spark_profiling_sample_rows: int = Field(
+        100_000,
+        description="Target row count when sampling a Spark-profiled dataset down "
+        "to pandas for the rest of the pipeline.",
+    )
+    spark_profiling_output_subdir: str = Field(
+        "eda",
+        description="Subdirectory (under the run directory) the Spark profile "
+        "report is written into — same subdirectory as the existing pandas EDA "
+        "charts.",
     )
 
     # ── Feature engineering — AutoBinner ─────────────────────────────────────

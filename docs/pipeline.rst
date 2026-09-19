@@ -19,7 +19,12 @@ Stage numbers below match the ``[N/13]`` log lines emitted at INFO level during 
        loading (not after) for ``format="delta"`` (always) and ``format="parquet"`` with
        ``read_via_spark=True`` (pushed into Spark) or ``row_group_sample=True`` (pushed into a
        Spark-free ``pyarrow`` row-group read), so a huge source doesn't need to be fully
-       collected to the driver first just to keep a small sample of it.
+       collected to the driver first just to keep a small sample of it. When
+       ``data.use_spark_profiling=True`` and a Spark environment is actually available,
+       the full dataset is instead profiled natively in Spark first (report saved under
+       ``<run_dir>/eda/spark_profile.html``), then sampled down to
+       ``settings.spark_profiling_sample_rows`` rows for every later stage — silently
+       falls back to the plain load above if Spark isn't available.
    * - 2
      - Splitting data
      - ``DataSplitter`` builds the train/val/test/OOT partitions per ``split.method``

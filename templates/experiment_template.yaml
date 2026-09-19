@@ -54,6 +54,13 @@ data:
   #                                  # depend on how many row groups/files the source actually has (a
   #                                  # single small file with few row groups sees little benefit).
   #                                  # Mutually exclusive with read_via_spark above.
+  # use_spark_profiling: false       # format=delta or format=parquet only — profiles the FULL
+                                      # dataset natively in Spark (missingness, skew, imbalance,
+                                      # correlations) before sampling down for the rest of the
+                                      # pipeline, when an active Spark session and the optional
+                                      # spark-data-profiler package are both available. Silently
+                                      # falls back to a plain pandas load otherwise — this is an
+                                      # opportunistic enhancement, not a hard requirement.
 
 # ── Split ─────────────────────────────────────────────────────────────────────
 split:
