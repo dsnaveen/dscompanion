@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dscompanion"
-version = "0.1.2"
+version = "0.1.3"
 description = "A production-grade ML pipeline toolkit: EDA, feature engineering, model training/tuning/calibration, and governance-ready model cards."
 readme = "README.md"
 authors = [{ name = "dsnaveen", email = "mailtonaveenmittal@gmail.com" }]
